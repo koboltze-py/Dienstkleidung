@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
     QFrame, QScrollArea, QSizePolicy, QDialog, QDialogButtonBox,
     QSplitter,
 )
-from PySide6.QtCore import Qt, QDate
+from PySide6.QtCore import Qt, QDate, QTimer
 
 from utils import today_iso, format_datum
 from modules.word_protokoll import (
@@ -512,14 +512,16 @@ class AusgabeTab(QWidget):
             else:
                 errors.append(f"{art['art_name']} {art['groesse']}: {msg}")
 
-        self.lbl_result.setVisible(True)
         if saved:
-            self.lbl_result.setText(f"✔  {saved} Position(en) erfolgreich ausgegeben.")
-            self.lbl_result.setStyleSheet("background:#E8F5E9; border-left:4px solid #388E3C; padding:8px; border-radius:4px;")
             self._reset_form()
             self._load_combos()
+        self.lbl_result.setVisible(True)
+        if saved and not errors:
+            self.lbl_result.setText(f"✔  {saved} Position(en) erfolgreich ausgegeben.")
+            self.lbl_result.setStyleSheet("background:#E8F5E9; border-left:4px solid #388E3C; padding:8px; border-radius:4px;")
         if errors:
-            self.lbl_result.setText(self.lbl_result.text() + "\n⚠  " + "\n".join(errors))
+            prefix = f"✔  {saved} gespeichert  \n" if saved else ""
+            self.lbl_result.setText(prefix + "⚠  " + "\n".join(errors))
             self.lbl_result.setStyleSheet("background:#FFF3E0; border-left:4px solid #F57C00; padding:8px; border-radius:4px;")
 
     def showEvent(self, event):
@@ -712,6 +714,13 @@ class RueckgabeTab(QWidget):
         self.cb_ma_rueck.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
         self.cb_ma_rueck.completer().setFilterMode(Qt.MatchFlag.MatchContains)
         self.cb_ma_rueck.completer().setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+        # Beim Anklicken Text sofort überschreiben: selectAll via Timer nach Focus
+        _le = self.cb_ma_rueck.lineEdit()
+        _orig_focus = _le.focusInEvent
+        def _on_focus(event, le=_le, orig=_orig_focus):
+            orig(event)
+            QTimer.singleShot(0, le.selectAll)
+        _le.focusInEvent = _on_focus
         select_row.addWidget(self.cb_ma_rueck)
 
         btn_laden = QPushButton("Kleidung laden")
