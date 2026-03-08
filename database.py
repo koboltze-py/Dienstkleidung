@@ -279,6 +279,19 @@ class DatabaseManager:
         conn.commit()
         conn.close()
 
+    def set_default_min_menge(self, default: int = 3) -> int:
+        """Setzt min_menge=default für alle Einträge wo min_menge noch 0 ist.
+        Gibt die Anzahl aktualisierter Zeilen zurück."""
+        conn = self._conn_kl()
+        cur = conn.execute(
+            "UPDATE kleidungsbestand SET min_menge=? WHERE min_menge=0 OR min_menge IS NULL",
+            (default,),
+        )
+        count = cur.rowcount
+        conn.commit()
+        conn.close()
+        return count
+
     def get_groessen_fuer_art(self, art_id: int) -> list[dict]:
         """Liefert alle Größen mit Menge > 0 für eine Kleidungsart."""
         conn = self._conn_kl()
