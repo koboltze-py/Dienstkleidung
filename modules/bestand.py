@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QTableWidget, QTableWidgetItem, QComboBox, QLineEdit,
     QSpinBox, QDialog, QDialogButtonBox, QFormLayout, QFrame,
     QMessageBox, QHeaderView, QAbstractItemView, QSplitter,
-    QScrollArea, QDateEdit,
+    QScrollArea, QDateEdit, QAbstractScrollArea, QCheckBox,
 )
 from PySide6.QtCore import Qt, QDate
 from PySide6.QtGui import QColor, QFont
@@ -431,7 +431,6 @@ class MultiAusbuchenDialog(QDialog):
         hl.setContentsMargins(0, 1, 0, 1)
         hl.setSpacing(8)
 
-        from PySide6.QtWidgets import QCheckBox
         chk = QCheckBox()
         chk.setFixedWidth(28)
 
@@ -493,6 +492,7 @@ class BestandView(QWidget):
         super().__init__(parent)
         self.db = db
         self._all_data: list[dict] = []
+        self._block_tables: list = []
         self._setup_ui()
         self._load_data()
 
@@ -556,27 +556,20 @@ class BestandView(QWidget):
 
         layout.addLayout(toolbar)
 
-        # Splitter: obere Tabelle + untere Detailansicht
+        # Splitter: obere Kategorie-Blöcke + untere Detailansicht
         splitter = QSplitter(Qt.Orientation.Vertical)
         splitter.setChildrenCollapsible(True)
 
-        # Bestandstabelle
-        self._table = QTableWidget(0, 6)
-        self._table.setHorizontalHeaderLabels(
-            ["Kleidungsart", "Größe", "Auf Lager", "Mindestbestand", "Bemerkung", "Aktionen"]
-        )
-        self._table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        self._table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        self._table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
-        self._table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
-        self._table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
-        self._table.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)
-        self._table.verticalHeader().setVisible(False)
-        self._table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        self._table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self._table.setAlternatingRowColors(True)
-        self._table.currentItemChanged.connect(self._on_row_selected)
-        splitter.addWidget(self._table)
+        # Kategorie-Blöcke in ScrollArea
+        self._blocks_scroll = QScrollArea()
+        self._blocks_scroll.setWidgetResizable(True)
+        self._blocks_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._blocks_container = QWidget()
+        self._blocks_layout = QVBoxLayout(self._blocks_container)
+        self._blocks_layout.setSpacing(14)
+        self._blocks_layout.setContentsMargins(0, 0, 8, 0)
+        self._blocks_scroll.setWidget(self._blocks_container)
+        splitter.addWidget(self._blocks_scroll)
 
         # Detailbereich: Buchungshistorie
         detail_frame = QFrame()
@@ -606,7 +599,7 @@ class BestandView(QWidget):
         detail_layout.addWidget(self._tbl_buchungen)
         splitter.addWidget(detail_frame)
 
-        splitter.setSizes([340, 200])
+        splitter.setSizes([500, 200])
         layout.addWidget(splitter)
 
         # Zusammenfassung
@@ -640,63 +633,125 @@ class BestandView(QWidget):
             and (not suche or suche in str(d["groesse"]).lower()
                  or suche in str(d["art_name"]).lower())
         ]
-        self._fill_table(filtered)
+        self._fill_blocks(filtered)
 
-    def _fill_table(self, data: list[dict]):
-        self._table.setRowCount(len(data))
+    def _fill_blocks(self, data: list[dict]):
+        # Vorhandene Blöcke leeren
+        self._block_tables.clear()
+        while self._blocks_layout.count():
+            child = self._blocks_layout.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
+
+        # Nach Kleidungsart gruppieren (Reihenfolge erhalten)
+        groups: dict[int, list[dict]] = {}
+        for item in data:
+            aid = item["art_id"]
+            if aid not in groups:
+                groups[aid] = []
+            groups[aid].append(item)
+
         warn_color = QColor("#FFF3CD")
 
-        TYP_FARBE = {
-            "eingang":    "#E8F5E9",
-            "ausgabe":    "#FFF3E0",
-            "rueckgabe":  "#E3F2FD",
-            "entsorgung": "#FCE4EC",
-            "ausbuchen":  "#FCE4EC",
-            "korrektur":  "#F3E5F5",
-        }
+        for art_id, items in groups.items():
+            art_name = items[0].get("art_name", "")
+            total_art = sum(int(i.get("menge", 0)) for i in items)
 
-        for r, item in enumerate(data):
-            menge = int(item.get("menge", 0))
-            min_m = int(item.get("min_menge", 0))
-            is_low = min_m > 0 and menge <= min_m
+            # --- Kategorie-Block ---
+            block = QFrame()
+            block.setObjectName("stat_card")
+            bl = QVBoxLayout(block)
+            bl.setContentsMargins(14, 10, 14, 10)
+            bl.setSpacing(6)
 
-            cells = [
-                item.get("art_name", ""),
-                str(item.get("groesse", "")),
-                str(menge),
-                str(min_m) if min_m > 0 else "–",
-                item.get("bemerkung", ""),
-            ]
-            for c, text in enumerate(cells):
-                it = QTableWidgetItem(text)
-                it.setData(Qt.ItemDataRole.UserRole, item)
-                if is_low:
-                    it.setBackground(warn_color)
-                self._table.setItem(r, c, it)
+            # Kopfzeile
+            hdr = QHBoxLayout()
+            lbl_name = QLabel(art_name)
+            name_font = QFont()
+            name_font.setBold(True)
+            name_font.setPointSize(11)
+            lbl_name.setFont(name_font)
+            lbl_name.setStyleSheet("color: #B20000;")
+            hdr.addWidget(lbl_name)
+            hdr.addStretch()
+            lbl_total = QLabel(f"Gesamt: {total_art} Stück")
+            lbl_total.setStyleSheet("color: #666; font-size: 11px;")
+            hdr.addWidget(lbl_total)
+            btn_hinzu = QPushButton("➕ Größe hinzufügen")
+            btn_hinzu.setObjectName("btn_secondary")
+            btn_hinzu.clicked.connect(lambda chk, aid=art_id: self._open_add_for_art(aid))
+            hdr.addWidget(btn_hinzu)
+            bl.addLayout(hdr)
 
-            # Aktions-Buttons
-            btn_widget = QWidget()
-            btn_layout = QHBoxLayout(btn_widget)
-            btn_layout.setContentsMargins(4, 2, 4, 2)
-            btn_layout.setSpacing(4)
+            # Mini-Tabelle für diese Kategorie
+            tbl = QTableWidget(len(items), 5)
+            tbl.setHorizontalHeaderLabels(["Größe", "Auf Lager", "Mindestbestand", "Bemerkung", "Aktionen"])
+            tbl.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+            tbl.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+            tbl.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+            tbl.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+            tbl.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+            tbl.verticalHeader().setVisible(False)
+            tbl.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+            tbl.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+            tbl.setAlternatingRowColors(True)
+            tbl.setSizeAdjustPolicy(QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents)
+            tbl.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            tbl.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
-            btn_edit = QPushButton("✏ Bearbeiten")
-            btn_edit.setObjectName("btn_icon")
-            btn_edit.clicked.connect(lambda checked, i=item: self._open_edit(i))
-            btn_layout.addWidget(btn_edit)
+            for r, item in enumerate(items):
+                menge = int(item.get("menge", 0))
+                min_m = int(item.get("min_menge", 0))
+                is_low = min_m > 0 and menge <= min_m
 
-            btn_del = QPushButton("🗑")
-            btn_del.setObjectName("btn_icon")
-            btn_del.setToolTip("Eintrag löschen")
-            btn_del.clicked.connect(lambda checked, i=item: self._delete_item(i))
-            btn_layout.addWidget(btn_del)
+                cells = [
+                    str(item.get("groesse", "")),
+                    str(menge),
+                    str(min_m) if min_m > 0 else "–",
+                    item.get("bemerkung", ""),
+                ]
+                for c, text in enumerate(cells):
+                    it = QTableWidgetItem(text)
+                    it.setData(Qt.ItemDataRole.UserRole, item)
+                    if is_low:
+                        it.setBackground(warn_color)
+                    tbl.setItem(r, c, it)
 
-            self._table.setCellWidget(r, 5, btn_widget)
+                btn_w = QWidget()
+                btn_l = QHBoxLayout(btn_w)
+                btn_l.setContentsMargins(4, 2, 4, 2)
+                btn_l.setSpacing(4)
 
-        total = sum(int(d.get("menge", 0)) for d in data)
-        types_shown = len(set(d["art_id"] for d in data))
+                btn_eg = QPushButton("📦")
+                btn_eg.setObjectName("btn_icon")
+                btn_eg.setToolTip("Wareneingang für diese Größe")
+                btn_eg.clicked.connect(lambda chk, i=item: self._open_eingang_for(i))
+                btn_l.addWidget(btn_eg)
+
+                btn_edit = QPushButton("✏")
+                btn_edit.setObjectName("btn_icon")
+                btn_edit.setToolTip("Bearbeiten")
+                btn_edit.clicked.connect(lambda chk, i=item: self._open_edit(i))
+                btn_l.addWidget(btn_edit)
+
+                btn_del = QPushButton("🗑")
+                btn_del.setObjectName("btn_icon")
+                btn_del.setToolTip("Eintrag löschen")
+                btn_del.clicked.connect(lambda chk, i=item: self._delete_item(i))
+                btn_l.addWidget(btn_del)
+
+                tbl.setCellWidget(r, 4, btn_w)
+
+            tbl.currentItemChanged.connect(self._on_row_selected)
+            self._block_tables.append(tbl)
+            bl.addWidget(tbl)
+            self._blocks_layout.addWidget(block)
+
+        self._blocks_layout.addStretch()
+
+        total_all = sum(int(d.get("menge", 0)) for d in data)
         self._lbl_summary.setText(
-            f"Angezeigt: {len(data)} Einträge | {types_shown} Kleidungsart(en) | {total} Stück gesamt"
+            f"Angezeigt: {len(data)} Einträge | {len(groups)} Kategorie(n) | {total_all} Stück gesamt"
         )
 
     def _on_row_selected(self, current, _prev):
@@ -704,6 +759,14 @@ class BestandView(QWidget):
             self._tbl_buchungen.setRowCount(0)
             self._lbl_detail_title.setText("Buchungshistorie  — Zeile auswählen")
             return
+        # Andere Block-Tabellen deselektieren
+        sender_tbl = self.sender()
+        for tbl in self._block_tables:
+            if tbl is not sender_tbl:
+                tbl.blockSignals(True)
+                tbl.clearSelection()
+                tbl.setCurrentItem(None)
+                tbl.blockSignals(False)
         item = current.data(Qt.ItemDataRole.UserRole)
         if not item:
             return
@@ -749,6 +812,9 @@ class BestandView(QWidget):
 
     def _open_add(self):
         art_id = self.cb_filter.currentData()
+        self._open_add_for_art(art_id)
+
+    def _open_add_for_art(self, art_id):
         dlg = BestandDialog(self.db, art_id=art_id, parent=self)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             d = dlg.get_data()
@@ -768,12 +834,11 @@ class BestandView(QWidget):
 
     def _open_eingang(self):
         art_id = self.cb_filter.currentData()
-        row = self._table.currentRow()
-        groesse = ""
-        if row >= 0:
-            cell = self._table.item(row, 1)
-            if cell:
-                groesse = cell.text()
+        self._open_eingang_for(None, art_id_preset=art_id)
+
+    def _open_eingang_for(self, item, art_id_preset=None):
+        art_id = item["art_id"] if item else art_id_preset
+        groesse = str(item.get("groesse", "")) if item else ""
         dlg = EingangDialog(self.db, art_id=art_id, groesse=groesse, parent=self)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             errors = []
