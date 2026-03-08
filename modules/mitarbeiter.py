@@ -142,7 +142,7 @@ class MitarbeiterView(QWidget):
         name_font.setBold(True)
         name_font.setPointSize(13)
         self.lbl_ma_name.setFont(name_font)
-        self.lbl_ma_name.setStyleSheet("color: #B20000;")
+        self.lbl_ma_name.setStyleSheet("color: #344F6B;")
         hdr_row.addWidget(self.lbl_ma_name)
 
         self.lbl_ma_info = QLabel("")
@@ -279,6 +279,14 @@ class MitarbeiterView(QWidget):
     def _filter_mitarbeiter(self, text: str):
         self._shown_count = self.PAGE_SIZE
         self._fill_ma_table(self._get_filtered_ma())
+        # Falls aktuell gewählter MA nach Filter nicht mehr sichtbar: Detail leeren
+        if not self._tbl_ma.selectedItems():
+            self._current_ma_id = None
+            self._current_ma_name = ""
+            self.lbl_ma_name.setText("Mitarbeiter auswählen")
+            self.lbl_ma_info.setText("")
+            self._tbl.setRowCount(0)
+            self.lbl_gesamt.setText("")
 
     def _on_ma_selected(self, current, _prev):
         if current is None:
@@ -373,7 +381,7 @@ class MitarbeiterView(QWidget):
         form.setSpacing(10)
 
         lbl_art = QLabel(f"{art_name}  ·  Gr. {groesse}")
-        lbl_art.setStyleSheet("font-weight: bold; color: #B20000;")
+        lbl_art.setStyleSheet("font-weight: bold; color: #344F6B;")
         form.addRow("Kleidungsart:", lbl_art)
 
         sb_menge = QSpinBox()

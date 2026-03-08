@@ -60,7 +60,7 @@ class LoginDialog(QDialog):
         f.setPointSize(14)
         lbl_title.setFont(f)
         lbl_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lbl_title.setStyleSheet("color:#B20000;")
+        lbl_title.setStyleSheet("color:#344F6B;")
         layout.addWidget(lbl_title)
 
         lbl_sub = QLabel("Erste-Hilfe-Station Flughafen Köln")

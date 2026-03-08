@@ -231,7 +231,11 @@ class AusgabeTab(QWidget):
         vorhanden_layout.addWidget(self._tbl_vorhanden)
         form_ma.addRow(self._grp_vorhanden)
 
-        self.cb_ma.currentIndexChanged.connect(self._update_vorhanden)
+        # Debounce: Datenbank nicht bei jedem Tastendruck abfragen
+        self._vorhanden_timer = QTimer(self)
+        self._vorhanden_timer.setSingleShot(True)
+        self._vorhanden_timer.timeout.connect(self._update_vorhanden)
+        self.cb_ma.currentIndexChanged.connect(lambda: self._vorhanden_timer.start(250))
 
         self.de_datum = QDateEdit(QDate.currentDate())
         self.de_datum.setDisplayFormat("dd.MM.yyyy")
@@ -328,6 +332,10 @@ class AusgabeTab(QWidget):
             self.cb_ma.setCurrentIndex(idx)
             self.cb_ma.lineEdit().setText(self.cb_ma.itemText(idx))
             self.cb_ma.blockSignals(False)
+            # Completer-Popup schließen, damit er den Text nicht überschreibt
+            popup = self.cb_ma.completer().popup()
+            if popup and popup.isVisible():
+                popup.hide()
             self._update_vorhanden()
         else:
             self.cb_ma.setCurrentIndex(0)
@@ -806,6 +814,9 @@ class RueckgabeTab(QWidget):
             self.cb_ma_rueck.setCurrentIndex(idx)
             self.cb_ma_rueck.lineEdit().setText(self.cb_ma_rueck.itemText(idx))
             self.cb_ma_rueck.blockSignals(False)
+            popup = self.cb_ma_rueck.completer().popup()
+            if popup and popup.isVisible():
+                popup.hide()
         self._load_kleidung()
 
     def showEvent(self, event):

@@ -1,6 +1,6 @@
-"""
+﻿"""
 DRK Dienstkleidung - QSS Stylesheet
-Farben: DRK-Rot #B20000, Weiß, Hellgrau
+Farben: DRK-Blau #344F6B, Weiß, Hellgrau
 """
 
 MAIN_STYLE = """
@@ -17,7 +17,7 @@ QWidget {
 
 /* === Sidebar === */
 QWidget#sidebar {
-    background-color: #B20000;
+    background-color: #344F6B;
     min-width: 215px;
     max-width: 215px;
 }
@@ -79,7 +79,7 @@ QWidget#content_area {
 QLabel#page_title {
     font-size: 22px;
     font-weight: bold;
-    color: #B20000;
+    color: #344F6B;
     padding-bottom: 2px;
 }
 
@@ -99,7 +99,7 @@ QFrame#stat_card {
 QLabel#stat_value {
     font-size: 30px;
     font-weight: bold;
-    color: #B20000;
+    color: #344F6B;
 }
 
 QLabel#stat_label {
@@ -127,7 +127,7 @@ QTableWidget {
     gridline-color: #F0F0F0;
     border: 1px solid #E0E0E0;
     border-radius: 6px;
-    selection-background-color: #B20000;
+    selection-background-color: #344F6B;
     selection-color: white;
     alternate-background-color: #FAFAFA;
     outline: none;
@@ -139,12 +139,12 @@ QTableWidget::item {
 }
 
 QTableWidget::item:selected {
-    background-color: #B20000;
+    background-color: #344F6B;
     color: white;
 }
 
 QHeaderView::section {
-    background-color: #B20000;
+    background-color: #344F6B;
     color: white;
     padding: 9px 12px;
     border: none;
@@ -159,7 +159,7 @@ QHeaderView::section:last {
 
 /* === Buttons === */
 QPushButton#btn_primary {
-    background-color: #B20000;
+    background-color: #344F6B;
     color: white;
     border: none;
     border-radius: 5px;
@@ -170,11 +170,11 @@ QPushButton#btn_primary {
 }
 
 QPushButton#btn_primary:hover {
-    background-color: #CC0000;
+    background-color: #3E5F80;
 }
 
 QPushButton#btn_primary:pressed {
-    background-color: #8B0000;
+    background-color: #253A52;
 }
 
 QPushButton#btn_primary:disabled {
@@ -184,8 +184,8 @@ QPushButton#btn_primary:disabled {
 
 QPushButton#btn_secondary {
     background-color: white;
-    color: #B20000;
-    border: 2px solid #B20000;
+    color: #344F6B;
+    border: 2px solid #344F6B;
     border-radius: 5px;
     padding: 7px 20px;
     font-size: 13px;
@@ -193,11 +193,11 @@ QPushButton#btn_secondary {
 }
 
 QPushButton#btn_secondary:hover {
-    background-color: #FFF0F0;
+    background-color: #EBF1F7;
 }
 
 QPushButton#btn_secondary:pressed {
-    background-color: #FFE0E0;
+    background-color: #D8E5F0;
 }
 
 QPushButton#btn_danger {
@@ -216,7 +216,7 @@ QPushButton#btn_danger:hover {
 
 QPushButton#btn_icon {
     background-color: transparent;
-    color: #B20000;
+    color: #344F6B;
     border: none;
     padding: 4px 8px;
     font-size: 12px;
@@ -224,7 +224,7 @@ QPushButton#btn_icon {
 }
 
 QPushButton#btn_icon:hover {
-    background-color: #FFF0F0;
+    background-color: #EBF1F7;
 }
 
 /* === Formularelemente === */
@@ -235,11 +235,11 @@ QComboBox, QLineEdit, QDateEdit, QSpinBox, QTextEdit {
     background-color: white;
     font-size: 13px;
     min-height: 34px;
-    selection-background-color: #B20000;
+    selection-background-color: #344F6B;
 }
 
 QComboBox:focus, QLineEdit:focus, QDateEdit:focus, QSpinBox:focus, QTextEdit:focus {
-    border: 2px solid #B20000;
+    border: 2px solid #344F6B;
     padding: 6px 9px;
 }
 
@@ -260,7 +260,7 @@ QComboBox::down-arrow {
 
 QComboBox::down-arrow:on {
     border-top: none;
-    border-bottom: 7px solid #B20000;
+    border-bottom: 7px solid #344F6B;
 }
 
 QDateEdit::drop-down, QSpinBox::drop-down {
@@ -309,7 +309,7 @@ QGroupBox::title {
     subcontrol-origin: margin;
     left: 12px;
     padding: 0 8px;
-    color: #B20000;
+    color: #344F6B;
 }
 
 /* === Statusleiste === */
@@ -341,13 +341,13 @@ QTabBar::tab {
 
 QTabBar::tab:selected {
     background-color: white;
-    color: #B20000;
+    color: #344F6B;
     font-weight: bold;
 }
 
 QTabBar::tab:hover:!selected {
     background-color: #F0F0F0;
-    color: #B20000;
+    color: #344F6B;
 }
 
 /* === ScrollBar === */
@@ -365,7 +365,7 @@ QScrollBar::handle:vertical {
 }
 
 QScrollBar::handle:vertical:hover {
-    background-color: #B20000;
+    background-color: #344F6B;
 }
 
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {

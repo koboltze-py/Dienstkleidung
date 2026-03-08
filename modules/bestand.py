@@ -442,7 +442,7 @@ class MultiAusbuchenDialog(QDialog):
         lbl_lager.setFixedWidth(80)
         lbl_lager.setAlignment(Qt.AlignmentFlag.AlignCenter)
         if menge == 0:
-            lbl_lager.setStyleSheet("color:#B20000; font-weight:bold;")
+            lbl_lager.setStyleSheet("color:#344F6B; font-weight:bold;")
 
         sb = QSpinBox()
         sb.setRange(1, max(1, menge))
@@ -545,7 +545,7 @@ class BestandView(QWidget):
 
         btn_aus = QPushButton("Ausbuchen")
         btn_aus.setObjectName("btn_secondary")
-        btn_aus.setStyleSheet("color:#B20000;")
+        btn_aus.setStyleSheet("color:#344F6B;")
         btn_aus.clicked.connect(self._open_ausbuchen)
         toolbar.addWidget(btn_aus)
         self._btn_aus = btn_aus
@@ -689,7 +689,7 @@ class BestandView(QWidget):
             name_font.setBold(True)
             name_font.setPointSize(11)
             lbl_name.setFont(name_font)
-            lbl_name.setStyleSheet("color: #B20000;")
+            lbl_name.setStyleSheet("color: #344F6B;")
             hdr.addWidget(lbl_name)
             hdr.addStretch()
             lbl_total = QLabel(f"Gesamt: {total_art} Stück")
@@ -735,9 +735,10 @@ class BestandView(QWidget):
                         it.setBackground(warn_color)
                     tbl.setItem(r, c, it)
 
-            tbl.currentItemChanged.connect(self._on_row_selected)
+            tbl.currentItemChanged.connect(lambda cur, prev, t=tbl: self._on_row_selected(cur, prev, t))
             tbl.cellDoubleClicked.connect(self._on_cell_double_clicked)
             tbl.setToolTip("Doppelklick für Aktionen (Eingang, Bearbeiten, Löschen)")
+            self._block_tables.append(tbl)
             # Höhe exakt auf alle Zeilen setzen (kein Scrollbalken nötig)
             row_h = tbl.verticalHeader().defaultSectionSize()
             hdr_h = tbl.horizontalHeader().height()
@@ -765,13 +766,14 @@ class BestandView(QWidget):
             f"Angezeigt: {len(data)} Einträge | {len(groups)} Kategorie(n) | {total_all} Stück gesamt"
         )
 
-    def _on_row_selected(self, current, _prev):
+    def _on_row_selected(self, current, _prev, sender_tbl=None):
         if current is None:
             self._tbl_buchungen.setRowCount(0)
             self._lbl_detail_title.setText("Buchungshistorie  — Zeile auswählen")
             return
         # Andere Block-Tabellen deselektieren
-        sender_tbl = self.sender()
+        if sender_tbl is None:
+            sender_tbl = self.sender()
         for tbl in self._block_tables:
             if tbl is not sender_tbl:
                 tbl.blockSignals(True)

@@ -62,7 +62,7 @@ class VerlaufView(QWidget):
         self.de_von = QDateEdit()
         self.de_von.setDisplayFormat("dd.MM.yyyy")
         self.de_von.setCalendarPopup(True)
-        self.de_von.setDate(QDate.currentDate().addMonths(-3))
+        self.de_von.setDate(QDate.currentDate().addDays(-7))
         self.de_von.setMaximumWidth(130)
         f1.addWidget(self.de_von)
 
@@ -75,6 +75,34 @@ class VerlaufView(QWidget):
 
         f1.addStretch()
         layout.addLayout(f1)
+
+        # Schnellfilter-Zeile
+        qf = QHBoxLayout()
+        qf.setSpacing(6)
+        qf.addWidget(QLabel("Zeitraum:"))
+        for label, fn in [
+            ("Heute",          lambda: (QDate.currentDate(), QDate.currentDate())),
+            ("7 Tage",         lambda: (QDate.currentDate().addDays(-7), QDate.currentDate())),
+            ("30 Tage",        lambda: (QDate.currentDate().addDays(-30), QDate.currentDate())),
+            ("Dieses Jahr",    lambda: (QDate(QDate.currentDate().year(), 1, 1), QDate.currentDate())),
+            ("Letztes Jahr",   lambda: (QDate(QDate.currentDate().year()-1, 1, 1), QDate(QDate.currentDate().year()-1, 12, 31))),
+            ("Alles",          lambda: (QDate(2000, 1, 1), QDate.currentDate())),
+        ]:
+            btn_q = QPushButton(label)
+            btn_q.setObjectName("btn_secondary")
+            btn_q.setMaximumHeight(30)
+            btn_q.setStyleSheet("QPushButton{padding:3px 10px;font-size:12px;}")
+            def _make_cb(f):
+                def _cb():
+                    von, bis = f()
+                    self.de_von.setDate(von)
+                    self.de_bis.setDate(bis)
+                    self._search()
+                return _cb
+            btn_q.clicked.connect(_make_cb(fn))
+            qf.addWidget(btn_q)
+        qf.addStretch()
+        layout.addLayout(qf)
 
         # Filter-Zeile 2
         f2 = QHBoxLayout()
@@ -174,7 +202,7 @@ class VerlaufView(QWidget):
     def _reset_filter(self):
         self.cb_art.setCurrentIndex(0)
         self.cb_typ.setCurrentIndex(0)
-        self.de_von.setDate(QDate.currentDate().addMonths(-3))
+        self.de_von.setDate(QDate.currentDate().addDays(-7))
         self.de_bis.setDate(QDate.currentDate())
         self.le_suche.clear()
         self._offset = 0
