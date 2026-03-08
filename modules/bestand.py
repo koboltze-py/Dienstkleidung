@@ -704,7 +704,7 @@ class BestandView(QWidget):
             tbl.setShowGrid(True)
             tbl.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
             tbl.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-            tbl.setColumnWidth(3, 80)
+            tbl.setColumnWidth(3, 110)
 
             for r, item in enumerate(items):
                 menge = int(item.get("menge", 0))
@@ -729,25 +729,25 @@ class BestandView(QWidget):
                 btn_l.setContentsMargins(4, 2, 4, 2)
                 btn_l.setSpacing(4)
 
-                btn_eg = QPushButton("📦 Eingang")
+                btn_eg = QPushButton("Eingang")
                 btn_eg.setObjectName("btn_icon")
                 btn_eg.setToolTip("Wareneingang für diese Größe")
-                btn_eg.setMinimumWidth(72)
+                btn_eg.setMinimumWidth(70)
                 btn_eg.clicked.connect(lambda chk, i=item: self._open_eingang_for(i))
                 btn_l.addWidget(btn_eg)
 
-                btn_edit = QPushButton("✏ Bearb.")
+                btn_edit = QPushButton("Bearbeiten")
                 btn_edit.setObjectName("btn_icon")
                 btn_edit.setToolTip("Bearbeiten")
-                btn_edit.setMinimumWidth(64)
+                btn_edit.setMinimumWidth(80)
                 btn_edit.clicked.connect(lambda chk, i=item: self._open_edit(i))
                 btn_l.addWidget(btn_edit)
 
-                btn_del = QPushButton("🗑 Löschen")
+                btn_del = QPushButton("Loeschen")
                 btn_del.setObjectName("btn_icon")
                 btn_del.setStyleSheet("color:#B20000;")
                 btn_del.setToolTip("Eintrag löschen")
-                btn_del.setMinimumWidth(72)
+                btn_del.setMinimumWidth(70)
                 btn_del.clicked.connect(lambda chk, i=item: self._delete_item(i))
                 btn_l.addWidget(btn_del)
 
@@ -760,7 +760,15 @@ class BestandView(QWidget):
             hdr_h = tbl.horizontalHeader().height()
             tbl.setFixedHeight(hdr_h + row_h * len(items) + 4)
             bl.addWidget(tbl)
-            self._blocks_layout.addWidget(block, grid_row, grid_col)
+            # Wrapper: füllt volle Spaltenbreite, Block bleibt oben
+            wrapper = QWidget()
+            wrapper.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+            wl = QVBoxLayout(wrapper)
+            wl.setContentsMargins(0, 0, 0, 0)
+            wl.setSpacing(0)
+            wl.addWidget(block)
+            wl.addStretch(1)
+            self._blocks_layout.addWidget(wrapper, grid_row, grid_col)
             grid_col += 1
             if grid_col > 1:
                 grid_col = 0
