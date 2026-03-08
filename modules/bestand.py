@@ -749,6 +749,10 @@ class BestandView(QWidget):
 
             tbl.currentItemChanged.connect(self._on_row_selected)
             self._block_tables.append(tbl)
+            # Höhe exakt auf alle Zeilen setzen (kein Scrollbalken nötig)
+            row_h = tbl.verticalHeader().defaultSectionSize()
+            hdr_h = tbl.horizontalHeader().height()
+            tbl.setFixedHeight(hdr_h + row_h * len(items) + 4)
             bl.addWidget(tbl)
             self._blocks_layout.addWidget(block)
 
