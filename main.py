@@ -24,13 +24,15 @@ from utils import setup_logging
 
 # Anmeldedaten: Benutzername → Passwort (None = kein Passwort nötig)
 _USERS: dict[str, str | None] = {
-    "Etz":  "schinken",
-    "Gast": None,
+    "Etz":     "schinken",
+    "Kurthen": "cologne",
+    "Gast":    None,
 }
 # Role-Mapping
 _ROLES: dict[str, str] = {
-    "Etz":  "etz",
-    "Gast": "gast",
+    "Etz":     "etz",
+    "Kurthen": "etz",
+    "Gast":    "gast",
 }
 
 

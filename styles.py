@@ -1,6 +1,6 @@
 ﻿"""
 DRK Dienstkleidung - QSS Stylesheet
-Farben: DRK-Blau #344F6B, Weiß, Hellgrau
+Farben: DRK-Blau #2F4B5D, Weiß, Hellgrau
 """
 
 MAIN_STYLE = """
@@ -17,9 +17,9 @@ QWidget {
 
 /* === Sidebar === */
 QWidget#sidebar {
-    background-color: #344F6B;
-    min-width: 215px;
-    max-width: 215px;
+    background-color: #2F4B5D;
+    min-width: 240px;
+    max-width: 240px;
 }
 
 QLabel#sidebar_title {
@@ -79,7 +79,7 @@ QWidget#content_area {
 QLabel#page_title {
     font-size: 22px;
     font-weight: bold;
-    color: #344F6B;
+    color: #2F4B5D;
     padding-bottom: 2px;
 }
 
@@ -99,7 +99,7 @@ QFrame#stat_card {
 QLabel#stat_value {
     font-size: 30px;
     font-weight: bold;
-    color: #344F6B;
+    color: #2F4B5D;
 }
 
 QLabel#stat_label {
@@ -127,7 +127,7 @@ QTableWidget {
     gridline-color: #F0F0F0;
     border: 1px solid #E0E0E0;
     border-radius: 6px;
-    selection-background-color: #344F6B;
+    selection-background-color: #2F4B5D;
     selection-color: white;
     alternate-background-color: #FAFAFA;
     outline: none;
@@ -139,12 +139,12 @@ QTableWidget::item {
 }
 
 QTableWidget::item:selected {
-    background-color: #344F6B;
+    background-color: #2F4B5D;
     color: white;
 }
 
 QHeaderView::section {
-    background-color: #344F6B;
+    background-color: #2F4B5D;
     color: white;
     padding: 9px 12px;
     border: none;
@@ -159,7 +159,7 @@ QHeaderView::section:last {
 
 /* === Buttons === */
 QPushButton#btn_primary {
-    background-color: #344F6B;
+    background-color: #2F4B5D;
     color: white;
     border: none;
     border-radius: 5px;
@@ -170,11 +170,11 @@ QPushButton#btn_primary {
 }
 
 QPushButton#btn_primary:hover {
-    background-color: #3E5F80;
+    background-color: #3A5E72;
 }
 
 QPushButton#btn_primary:pressed {
-    background-color: #253A52;
+    background-color: #1E3444;
 }
 
 QPushButton#btn_primary:disabled {
@@ -184,8 +184,8 @@ QPushButton#btn_primary:disabled {
 
 QPushButton#btn_secondary {
     background-color: white;
-    color: #344F6B;
-    border: 2px solid #344F6B;
+    color: #2F4B5D;
+    border: 2px solid #2F4B5D;
     border-radius: 5px;
     padding: 7px 20px;
     font-size: 13px;
@@ -193,11 +193,11 @@ QPushButton#btn_secondary {
 }
 
 QPushButton#btn_secondary:hover {
-    background-color: #EBF1F7;
+    background-color: #DCE8F0;
 }
 
 QPushButton#btn_secondary:pressed {
-    background-color: #D8E5F0;
+    background-color: #C4D8E8;
 }
 
 QPushButton#btn_danger {
@@ -216,7 +216,7 @@ QPushButton#btn_danger:hover {
 
 QPushButton#btn_icon {
     background-color: transparent;
-    color: #344F6B;
+    color: #2F4B5D;
     border: none;
     padding: 4px 8px;
     font-size: 12px;
@@ -224,7 +224,7 @@ QPushButton#btn_icon {
 }
 
 QPushButton#btn_icon:hover {
-    background-color: #EBF1F7;
+    background-color: #DCE8F0;
 }
 
 /* === Formularelemente === */
@@ -235,11 +235,11 @@ QComboBox, QLineEdit, QDateEdit, QSpinBox, QTextEdit {
     background-color: white;
     font-size: 13px;
     min-height: 34px;
-    selection-background-color: #344F6B;
+    selection-background-color: #2F4B5D;
 }
 
 QComboBox:focus, QLineEdit:focus, QDateEdit:focus, QSpinBox:focus, QTextEdit:focus {
-    border: 2px solid #344F6B;
+    border: 2px solid #2F4B5D;
     padding: 6px 9px;
 }
 
@@ -260,7 +260,7 @@ QComboBox::down-arrow {
 
 QComboBox::down-arrow:on {
     border-top: none;
-    border-bottom: 7px solid #344F6B;
+    border-bottom: 7px solid #2F4B5D;
 }
 
 QDateEdit::drop-down, QSpinBox::drop-down {
@@ -309,7 +309,7 @@ QGroupBox::title {
     subcontrol-origin: margin;
     left: 12px;
     padding: 0 8px;
-    color: #344F6B;
+    color: #2F4B5D;
 }
 
 /* === Statusleiste === */
@@ -341,13 +341,13 @@ QTabBar::tab {
 
 QTabBar::tab:selected {
     background-color: white;
-    color: #344F6B;
+    color: #2F4B5D;
     font-weight: bold;
 }
 
 QTabBar::tab:hover:!selected {
     background-color: #F0F0F0;
-    color: #344F6B;
+    color: #2F4B5D;
 }
 
 /* === ScrollBar === */
@@ -365,7 +365,7 @@ QScrollBar::handle:vertical {
 }
 
 QScrollBar::handle:vertical:hover {
-    background-color: #344F6B;
+    background-color: #2F4B5D;
 }
 
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {

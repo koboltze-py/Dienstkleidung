@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
     QLineEdit, QInputDialog,
 )
 from PySide6.QtCore import Qt, QSize
-from PySide6.QtGui import QFont, QIcon
+from PySide6.QtGui import QFont, QIcon, QPixmap
 
 from modules.dashboard import DashboardView
 from modules.bestand import BestandView
@@ -122,15 +122,28 @@ class MainWindow(QMainWindow):
     def _build_sidebar(self) -> QWidget:
         sidebar = QWidget()
         sidebar.setObjectName("sidebar")
-        sidebar.setFixedWidth(215)
+        sidebar.setFixedWidth(240)
         layout = QVBoxLayout(sidebar)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
         # Logo-Bereich
-        lbl_logo = QLabel("🩺 DRK Dienstkleidung")
-        lbl_logo.setObjectName("sidebar_title")
-        lbl_logo.setWordWrap(True)
+        _LOGO_PATH = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "Data", "Logo", "Depot.jpg"
+        )
+        lbl_logo = QLabel()
+        lbl_logo.setObjectName("sidebar_logo")
+        lbl_logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        pixmap = QPixmap(_LOGO_PATH)
+        if not pixmap.isNull():
+            lbl_logo.setPixmap(
+                pixmap.scaled(236, 210, Qt.AspectRatioMode.KeepAspectRatio,
+                              Qt.TransformationMode.SmoothTransformation)
+            )
+        else:
+            lbl_logo.setText("DRK Dienstkleidung")
+        lbl_logo.setContentsMargins(4, 10, 4, 4)
         layout.addWidget(lbl_logo)
 
         lbl_sub = QLabel("Erste-Hilfe-Station\nFlughafen Köln")

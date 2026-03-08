@@ -6,7 +6,7 @@ Zeigt Uhrzeit, Kalender und niedrige Bestände.
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QFrame, QCalendarWidget, QTableWidget, QTableWidgetItem,
-    QHeaderView, QScrollArea, QPushButton, QMessageBox,
+    QHeaderView, QPushButton, QMessageBox,
 )
 from PySide6.QtCore import Qt, QTimer, QTime, QDate
 from PySide6.QtGui import QFont, QColor
@@ -36,13 +36,7 @@ class DashboardView(QWidget):
         self._stock_timer.start(60_000)
 
     def _setup_ui(self):
-        outer = QScrollArea(self)
-        outer.setWidgetResizable(True)
-        outer.setFrameShape(QFrame.Shape.NoFrame)
-        container = QWidget()
-        outer.setWidget(container)
-
-        layout = QVBoxLayout(container)
+        layout = QVBoxLayout(self)
         layout.setContentsMargins(32, 24, 32, 24)
         layout.setSpacing(20)
 
@@ -71,7 +65,7 @@ class DashboardView(QWidget):
         time_font.setBold(True)
         self._lbl_time.setFont(time_font)
         self._lbl_time.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._lbl_time.setStyleSheet("color: #344F6B; letter-spacing: 4px;")
+        self._lbl_time.setStyleSheet("color: #2F4B5D; letter-spacing: 4px;")
         clock_layout.addWidget(self._lbl_time)
 
         self._lbl_date = QLabel("")
@@ -115,12 +109,6 @@ class DashboardView(QWidget):
         self._lbl_low_count = QLabel("")
         self._lbl_low_count.setStyleSheet("color:#888; font-size:11px;")
         hdr_row.addWidget(self._lbl_low_count)
-
-        btn_set_min = QPushButton("Mindestbestand 3 setzen (alle ohne Wert)")
-        btn_set_min.setObjectName("btn_secondary")
-        btn_set_min.setToolTip("Setzt min_menge=3 für alle Artikel, die noch keinen Mindestbestand haben")
-        btn_set_min.clicked.connect(self._set_default_min)
-        hdr_row.addWidget(btn_set_min)
         low_layout.addLayout(hdr_row)
 
         self._tbl_low = QTableWidget(0, 4)
@@ -132,15 +120,9 @@ class DashboardView(QWidget):
         self._tbl_low.verticalHeader().setVisible(False)
         self._tbl_low.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self._tbl_low.setAlternatingRowColors(True)
-        self._tbl_low.setMaximumHeight(260)
         low_layout.addWidget(self._tbl_low)
 
-        layout.addWidget(low_frame)
-        layout.addStretch()
-
-        root = QVBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
-        root.addWidget(outer)
+        layout.addWidget(low_frame, stretch=1)
 
     def _update_clock(self):
         now = QTime.currentTime()
