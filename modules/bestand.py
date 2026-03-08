@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QTableWidget, QTableWidgetItem, QComboBox, QLineEdit,
     QSpinBox, QDialog, QDialogButtonBox, QFormLayout, QFrame,
     QMessageBox, QHeaderView, QAbstractItemView, QSplitter,
-    QScrollArea, QDateEdit, QAbstractScrollArea, QCheckBox,
+    QScrollArea, QDateEdit, QCheckBox,
 )
 from PySide6.QtCore import Qt, QDate
 from PySide6.QtGui import QColor, QFont
@@ -689,7 +689,7 @@ class BestandView(QWidget):
             tbl.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
             tbl.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
             tbl.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
-            tbl.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Interactive)
+            tbl.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
             tbl.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
             tbl.verticalHeader().setVisible(False)
             tbl.verticalHeader().setDefaultSectionSize(34)
@@ -697,11 +697,8 @@ class BestandView(QWidget):
             tbl.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
             tbl.setAlternatingRowColors(True)
             tbl.setShowGrid(True)
-            tbl.setSizeAdjustPolicy(QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents)
             tbl.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-            tbl.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-            tbl.setColumnWidth(3, 160)
-            tbl.setColumnWidth(4, 210)
+            tbl.setColumnWidth(4, 220)
 
             for r, item in enumerate(items):
                 menge = int(item.get("menge", 0))

@@ -17,6 +17,7 @@ from utils import today_iso, format_datum
 from modules.word_protokoll import (
     ProtokollAbfrageDialog, create_ausgabe_protokoll,
     create_rueckgabe_protokoll, open_document,
+    AUSGABE_DIR, RUECKNAHME_DIR,
 )
 
 
@@ -281,6 +282,15 @@ class AusgabeTab(QWidget):
         # Aktions-Buttons
         btn_row = QHBoxLayout()
         btn_row.addStretch()
+
+        btn_ordner = QPushButton("📂  Protokoll-Ordner öffnen")
+        btn_ordner.setObjectName("btn_secondary")
+        btn_ordner.setToolTip(f"Ordner öffnen: {AUSGABE_DIR}")
+        def _open_ausgabe_ordner():
+            import os as _os; _os.makedirs(AUSGABE_DIR, exist_ok=True); _os.startfile(AUSGABE_DIR)
+        btn_ordner.clicked.connect(_open_ausgabe_ordner)
+        btn_row.addWidget(btn_ordner)
+
         btn_reset = QPushButton("Zurücksetzen")
         btn_reset.setObjectName("btn_secondary")
         btn_reset.clicked.connect(self._reset_form)
@@ -752,6 +762,15 @@ class RueckgabeTab(QWidget):
         # Aktions-Button
         bottom_row = QHBoxLayout()
         bottom_row.setSpacing(16)
+
+        btn_ordner_r = QPushButton("📂  Protokoll-Ordner öffnen")
+        btn_ordner_r.setObjectName("btn_secondary")
+        btn_ordner_r.setToolTip(f"Ordner öffnen: {RUECKNAHME_DIR}")
+        def _open_rueck_ordner():
+            import os as _os; _os.makedirs(RUECKNAHME_DIR, exist_ok=True); _os.startfile(RUECKNAHME_DIR)
+        btn_ordner_r.clicked.connect(_open_rueck_ordner)
+        bottom_row.addWidget(btn_ordner_r)
+
         bottom_row.addStretch()
 
         btn_rueck = QPushButton("📥  Ausgewählte zurücknehmen")
