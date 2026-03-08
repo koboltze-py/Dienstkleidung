@@ -556,7 +556,7 @@ class BestandView(QWidget):
         toolbar.addWidget(btn_add)
         self._btn_add = btn_add
 
-        btn_kat = QPushButton("Neue Kategorie")
+        btn_kat = QPushButton("Neue Kleidungsart")
         btn_kat.setObjectName("btn_secondary")
         btn_kat.clicked.connect(self._open_neue_kategorie)
         toolbar.addWidget(btn_kat)

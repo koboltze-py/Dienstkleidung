@@ -151,8 +151,8 @@ class MainWindow(QMainWindow):
         self._btn_group.setExclusive(True)
         self._nav_buttons: list[QPushButton] = []
 
-        for i, (label, icon, _cls) in enumerate(NAV_ITEMS):
-            btn = QPushButton(f"  {icon}  {label}")
+        for i, (label, _icon, _cls) in enumerate(NAV_ITEMS):
+            btn = QPushButton(f"  {label}")
             btn.setObjectName("nav_btn")
             btn.setCheckable(True)
             btn.setMinimumHeight(44)

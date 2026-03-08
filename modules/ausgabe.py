@@ -324,7 +324,11 @@ class AusgabeTab(QWidget):
     def _on_ma_selected_sidebar(self, entry: dict):
         idx = self.cb_ma.findData(entry["id"])
         if idx >= 0:
+            self.cb_ma.blockSignals(True)
             self.cb_ma.setCurrentIndex(idx)
+            self.cb_ma.lineEdit().setText(self.cb_ma.itemText(idx))
+            self.cb_ma.blockSignals(False)
+            self._update_vorhanden()
         else:
             self.cb_ma.setCurrentIndex(0)
             self.le_ma_freitext.setText(entry["name"])
@@ -798,7 +802,10 @@ class RueckgabeTab(QWidget):
     def _on_ma_selected_sidebar(self, entry: dict):
         idx = self.cb_ma_rueck.findData(entry["id"])
         if idx >= 0:
+            self.cb_ma_rueck.blockSignals(True)
             self.cb_ma_rueck.setCurrentIndex(idx)
+            self.cb_ma_rueck.lineEdit().setText(self.cb_ma_rueck.itemText(idx))
+            self.cb_ma_rueck.blockSignals(False)
         self._load_kleidung()
 
     def showEvent(self, event):
