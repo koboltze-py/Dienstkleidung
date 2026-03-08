@@ -782,6 +782,36 @@ class DatabaseManager:
         return count
 
     # ------------------------------------------------------------------
+    # Buchungs-Editierung
+    # ------------------------------------------------------------------
+
+    def update_buchung(self, buchung_id: int, datum: str, bemerkung: str,
+                       ausgegeben_von: str) -> tuple[bool, str]:
+        """Aktualisiert editierbare Felder einer Buchung (kein Bestandsausgleich)."""
+        try:
+            conn = self._conn_kl()
+            conn.execute(
+                "UPDATE buchungen SET datum=?, bemerkung=?, ausgegeben_von=? WHERE id=?",
+                (datum, bemerkung, ausgegeben_von, buchung_id),
+            )
+            conn.commit()
+            conn.close()
+            return True, "Buchung aktualisiert."
+        except Exception as e:
+            return False, str(e)
+
+    def delete_buchung(self, buchung_id: int) -> tuple[bool, str]:
+        """Löscht einen Buchungseintrag. Bestand wird NICHT automatisch korrigiert."""
+        try:
+            conn = self._conn_kl()
+            conn.execute("DELETE FROM buchungen WHERE id=?", (buchung_id,))
+            conn.commit()
+            conn.close()
+            return True, "Buchung gelöscht."
+        except Exception as e:
+            return False, str(e)
+
+    # ------------------------------------------------------------------
     # Dashboard-Statistiken
     # ------------------------------------------------------------------
 

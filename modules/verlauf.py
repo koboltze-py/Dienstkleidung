@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QComboBox, QLineEdit, QDateEdit, QTableWidget, QTableWidgetItem,
     QHeaderView, QAbstractItemView, QMessageBox, QFrame,
+    QDialog, QFormLayout, QDialogButtonBox,
 )
 from PySide6.QtCore import Qt, QDate
 from PySide6.QtGui import QColor
@@ -24,6 +25,7 @@ class VerlaufView(QWidget):
         self.db = db
         self._offset = 0
         self._total = 0
+        self._allow_edit = True
         self._setup_ui()
         self._load_filter_combos()
         self._load_data()
@@ -121,6 +123,8 @@ class VerlaufView(QWidget):
         self._tbl.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self._tbl.setAlternatingRowColors(True)
         self._tbl.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self._tbl.setToolTip("Doppelklick zum Bearbeiten oder Löschen")
+        self._tbl.cellDoubleClicked.connect(self._on_double_click)
         layout.addWidget(self._tbl)
 
         # Paginierung
@@ -216,6 +220,7 @@ class VerlaufView(QWidget):
             for c, text in enumerate(cells):
                 it = QTableWidgetItem(text)
                 it.setBackground(color)
+                it.setData(Qt.ItemDataRole.UserRole, b.get("id"))
                 self._tbl.setItem(r, c, it)
 
     def _update_pagination(self):
@@ -263,3 +268,106 @@ class VerlaufView(QWidget):
         super().showEvent(event)
         self._load_filter_combos()
         self._load_data()
+
+    def set_readonly(self):
+        """Deaktiviert alle Bearbeitungs- und Löschfunktionen (Gast-Modus)."""
+        self._allow_edit = False
+        self._tbl.setToolTip("")
+
+    def _on_double_click(self, row, _col):
+        if not self._allow_edit:
+            return
+        cell = self._tbl.item(row, 0)
+        if not cell:
+            return
+        buchung_id = cell.data(Qt.ItemDataRole.UserRole)
+        if buchung_id is None:
+            return
+        self._open_edit_dialog(buchung_id, row)
+
+    def _open_edit_dialog(self, buchung_id: int, row: int):
+        # Aktuelle Werte aus der Tabelle lesen
+        def _txt(col): return (self._tbl.item(row, col) or QTableWidgetItem("")).text()
+        datum_de   = _txt(0)
+        typ_label  = _txt(1)
+        art_gr     = f"{_txt(2)}  Gr. {_txt(3)}"
+        menge      = _txt(4)
+        ma_name    = _txt(5)
+        ausgeg_von = _txt(6)
+        bemerkung  = _txt(7)
+
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Buchung bearbeiten")
+        dlg.setMinimumWidth(400)
+        dlg.setModal(True)
+        form = QFormLayout(dlg)
+        form.setContentsMargins(20, 16, 20, 16)
+        form.setSpacing(10)
+
+        form.addRow("Typ:",         QLabel(typ_label))
+        form.addRow("Artikel:",     QLabel(art_gr))
+        form.addRow("Menge:",       QLabel(menge))
+        form.addRow("Mitarbeiter:", QLabel(ma_name))
+
+        de_datum = QDateEdit()
+        de_datum.setDisplayFormat("dd.MM.yyyy")
+        de_datum.setCalendarPopup(True)
+        try:
+            from datetime import datetime as _dt
+            d = _dt.strptime(datum_de, "%d.%m.%Y")
+            de_datum.setDate(QDate(d.year, d.month, d.day))
+        except Exception:
+            de_datum.setDate(QDate.currentDate())
+        form.addRow("Datum:", de_datum)
+
+        from PySide6.QtWidgets import QLineEdit as _LE
+        le_von = _LE(ausgeg_von)
+        form.addRow("Ausgeg. von:", le_von)
+        le_bem = _LE(bemerkung)
+        form.addRow("Bemerkung:", le_bem)
+
+        result = [None]
+        from PySide6.QtWidgets import QHBoxLayout as _HL
+        btn_row = _HL()
+        btn_save = QPushButton("Speichern")
+        btn_save.setObjectName("btn_primary")
+        btn_del  = QPushButton("Loeschen")
+        btn_del.setStyleSheet("color:#B20000;")
+        btn_cancel = QPushButton("Abbrechen")
+        btn_save.clicked.connect(lambda: (result.__setitem__(0, "save"), dlg.accept()))
+        btn_del.clicked.connect(lambda: (result.__setitem__(0, "del"), dlg.accept()))
+        btn_cancel.clicked.connect(dlg.reject)
+        btn_row.addWidget(btn_save)
+        btn_row.addWidget(btn_del)
+        btn_row.addWidget(btn_cancel)
+        from PySide6.QtWidgets import QWidget as _W
+        w = _W(); w.setLayout(btn_row)
+        form.addRow(w)
+
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        if result[0] == "save":
+            datum_iso = de_datum.date().toString("yyyy-MM-dd")
+            ok, msg = self.db.update_buchung(
+                buchung_id, datum_iso,
+                le_bem.text().strip(), le_von.text().strip()
+            )
+            if ok:
+                self._load_data()
+            else:
+                QMessageBox.warning(self, "Fehler", msg)
+
+        elif result[0] == "del":
+            reply = QMessageBox.question(
+                self, "Buchung loeschen",
+                "Buchung wirklich löschen?\n"
+                "Hinweis: Der Bestand wird NICHT automatisch korrigiert.",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if reply == QMessageBox.StandardButton.Yes:
+                ok, msg = self.db.delete_buchung(buchung_id)
+                if ok:
+                    self._load_data()
+                else:
+                    QMessageBox.warning(self, "Fehler", msg)

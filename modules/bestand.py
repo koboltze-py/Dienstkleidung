@@ -493,8 +493,17 @@ class BestandView(QWidget):
         self.db = db
         self._all_data: list[dict] = []
         self._block_tables: list = []
+        self._allow_edit = True
         self._setup_ui()
         self._load_data()
+
+    def set_readonly(self):
+        """Deaktiviert alle Bearbeitungsfunktionen (Gast-Modus)."""
+        self._allow_edit = False
+        for attr in ("_btn_eingang", "_btn_aus", "_btn_add", "_btn_kat"):
+            btn = getattr(self, attr, None)
+            if btn:
+                btn.setVisible(False)
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
@@ -528,26 +537,30 @@ class BestandView(QWidget):
 
         toolbar.addStretch()
 
-        btn_eingang = QPushButton("📦  Wareneingang")
+        btn_eingang = QPushButton("Wareneingang")
         btn_eingang.setObjectName("btn_secondary")
         btn_eingang.clicked.connect(self._open_eingang)
         toolbar.addWidget(btn_eingang)
+        self._btn_eingang = btn_eingang
 
-        btn_aus = QPushButton("➖  Ausbuchen")
+        btn_aus = QPushButton("Ausbuchen")
         btn_aus.setObjectName("btn_secondary")
         btn_aus.setStyleSheet("color:#B20000;")
         btn_aus.clicked.connect(self._open_ausbuchen)
         toolbar.addWidget(btn_aus)
+        self._btn_aus = btn_aus
 
-        btn_add = QPushButton("➕  Neues Kleidungsstück")
+        btn_add = QPushButton("Neues Kleidungsstueck")
         btn_add.setObjectName("btn_primary")
         btn_add.clicked.connect(self._open_add)
         toolbar.addWidget(btn_add)
+        self._btn_add = btn_add
 
-        btn_kat = QPushButton("🏷  Neue Kategorie")
+        btn_kat = QPushButton("Neue Kategorie")
         btn_kat.setObjectName("btn_secondary")
         btn_kat.clicked.connect(self._open_neue_kategorie)
         toolbar.addWidget(btn_kat)
+        self._btn_kat = btn_kat
 
         btn_exp = QPushButton("📊  Excel-Export")
         btn_exp.setObjectName("btn_secondary")
@@ -809,6 +822,8 @@ class BestandView(QWidget):
                 self._tbl_buchungen.setItem(r, c, cell)
 
     def _on_cell_double_clicked(self, row, _col):
+        if not self._allow_edit:
+            return
         sender_tbl = self.sender()
         cell = sender_tbl.item(row, 0)
         if not cell:

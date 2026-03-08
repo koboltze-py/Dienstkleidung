@@ -24,8 +24,18 @@ TEMPLATE_PATH = os.path.join(
     "Stärkemeldung 31.01.2026 bis 01.02.2026.docx",
 )
 EXPORT_DIR = os.path.join(_APP_DIR, "Export")
-AUSGABE_DIR = os.path.join(_BASE_DIR, "Data", "Ausgabe Protokolle")
-RUECKNAHME_DIR = os.path.join(_BASE_DIR, "Data", "Rücknahme Protokolle")
+
+
+def get_ausgabe_dir() -> str:
+    """Gibt das konfigurierte Ausgabe-Protokoll-Verzeichnis zurück."""
+    import config
+    return config.get("ausgabe_dir")
+
+
+def get_ruecknahme_dir() -> str:
+    """Gibt das konfigurierte Rücknahme-Protokoll-Verzeichnis zurück."""
+    import config
+    return config.get("ruecknahme_dir")
 
 
 # ---------------------------------------------------------------------------
@@ -189,9 +199,9 @@ def create_ausgabe_protokoll(
     if not os.path.exists(tpl):
         return False, f"Vorlage nicht gefunden:\n{tpl}"
 
-    os.makedirs(AUSGABE_DIR, exist_ok=True)
+    os.makedirs(get_ausgabe_dir(), exist_ok=True)
     safe = ma_name.replace(",", "").replace(" ", "_")[:30]
-    out = output_path or os.path.join(AUSGABE_DIR, f"Ausgabe_{safe}_{datum_iso}.docx")
+    out = output_path or os.path.join(get_ausgabe_dir(), f"Ausgabe_{safe}_{datum_iso}.docx")
 
     try:
         doc = Document(tpl)
@@ -271,9 +281,9 @@ def create_rueckgabe_protokoll(
     if not os.path.exists(tpl):
         return False, f"Vorlage nicht gefunden:\n{tpl}"
 
-    os.makedirs(RUECKNAHME_DIR, exist_ok=True)
+    os.makedirs(get_ruecknahme_dir(), exist_ok=True)
     safe = ma_name.replace(",", "").replace(" ", "_")[:30]
-    out = output_path or os.path.join(RUECKNAHME_DIR, f"Rueckgabe_{safe}_{datum_iso}.docx")
+    out = output_path or os.path.join(get_ruecknahme_dir(), f"Rueckgabe_{safe}_{datum_iso}.docx")
 
     try:
         doc = Document(tpl)

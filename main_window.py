@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QLabel,
     QPushButton, QStackedWidget, QStatusBar, QMessageBox,
     QButtonGroup, QFrame, QSizePolicy, QDialog, QDialogButtonBox,
+    QLineEdit, QInputDialog,
 )
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QFont, QIcon
@@ -17,17 +18,18 @@ from modules.bestand import BestandView
 from modules.ausgabe import AusgabeView
 from modules.mitarbeiter import MitarbeiterView
 from modules.verlauf import VerlaufView
-from utils import create_backup
+from modules.einstellungen import EinstellungenView
+from utils import create_full_backup
 
 APP_VERSION = "1.0.0"
 
 # Navigations-Einträge: (Label, Icon, Klassen-Referenz)
 NAV_ITEMS = [
-    ("Dashboard",         "🏠", DashboardView),
-    ("Bestand",           "📦", BestandView),
-    ("Ausgabe / Rückgabe","📤", AusgabeView),
-    ("Mitarbeiter",       "👥", MitarbeiterView),
-    ("Buchungsverlauf",   "📋", VerlaufView),
+    ("Dashboard",         "Dash",    DashboardView),
+    ("Bestand",           "Bestand", BestandView),
+    ("Ausgabe / Rueckgabe","Ausgabe", AusgabeView),
+    ("Mitarbeiter",       "MA",      MitarbeiterView),
+    ("Buchungsverlauf",   "Verlauf", VerlaufView),
 ]
 
 
@@ -63,13 +65,17 @@ class SetupPromptDialog(QDialog):
 class MainWindow(QMainWindow):
     """Hauptfenster der DRK Dienstkleidung-App."""
 
-    def __init__(self, db, parent=None):
+    _PW_EINSTELLUNGEN = "mettwurst"
+
+    def __init__(self, db, role: str = "etz", parent=None):
         super().__init__(parent)
         self.db = db
+        self.role = role  # "etz" or "gast"
         self.setWindowTitle("DRK Dienstkleidung · Erste-Hilfe-Station Flughafen Köln")
         self.setMinimumSize(1050, 680)
         self.resize(1250, 780)
         self._setup_ui()
+        self._apply_role()
         self._check_db()
 
     # ------------------------------------------------------------------
@@ -103,6 +109,11 @@ class MainWindow(QMainWindow):
             view = ViewClass(self.db)
             self._stack.addWidget(view)
             self._views.append(view)
+
+        # Einstellungen-View (separat, immer vorhanden)
+        self._einstellungen_view = EinstellungenView(self.db)
+        self._stack.addWidget(self._einstellungen_view)
+        self._einstellungen_idx = len(NAV_ITEMS)  # index in stack
 
         # Ersten Tab aktivieren
         self._nav_buttons[0].setChecked(True)
@@ -158,11 +169,17 @@ class MainWindow(QMainWindow):
         div2.setFrameShape(QFrame.Shape.HLine)
         layout.addWidget(div2)
 
-        btn_backup = QPushButton("  💾  Backup erstellen")
+        btn_backup = QPushButton("  Backup erstellen")
         btn_backup.setObjectName("nav_btn")
         btn_backup.setMinimumHeight(44)
         btn_backup.clicked.connect(self._do_backup)
         layout.addWidget(btn_backup)
+
+        self._btn_einstellungen = QPushButton("  Einstellungen")
+        self._btn_einstellungen.setObjectName("nav_btn")
+        self._btn_einstellungen.setMinimumHeight(44)
+        self._btn_einstellungen.clicked.connect(self._open_einstellungen)
+        layout.addWidget(self._btn_einstellungen)
 
         lbl_ver = QLabel(f"Version {APP_VERSION}")
         lbl_ver.setObjectName("sidebar_version")
@@ -181,12 +198,46 @@ class MainWindow(QMainWindow):
         label = NAV_ITEMS[index][0]
         self._statusbar.showMessage(f"{label}  ·  DRK Dienstkleidung v{APP_VERSION}")
 
+    def _open_einstellungen(self):
+        """Fragt nach Passwort und öffnet die Einstellungen."""
+        pw, ok = QInputDialog.getText(
+            self, "Einstellungen",
+            "Bitte Passwort eingeben:",
+            QLineEdit.EchoMode.Password,
+        )
+        if not ok:
+            return
+        if pw != self._PW_EINSTELLUNGEN:
+            QMessageBox.warning(self, "Falsches Passwort", "Das eingegebene Passwort ist falsch.")
+            return
+        # Deselect nav buttons
+        checked = self._btn_group.checkedButton()
+        if checked:
+            checked.setChecked(False)
+        self._stack.setCurrentIndex(self._einstellungen_idx)
+        self._statusbar.showMessage(f"Einstellungen  ·  DRK Dienstkleidung v{APP_VERSION}")
+
+    def _apply_role(self):
+        """Wendet Rollen-Beschränkungen an (Gast = nur lesen + Ausgabe)."""
+        if self.role == "gast":
+            self._btn_einstellungen.setVisible(False)
+            # Bestand + Mitarbeiter + Verlauf auf readonly setzen
+            for view in self._views:
+                if hasattr(view, "set_readonly"):
+                    view.set_readonly()
+            user_lbl = "Gast"
+        else:
+            user_lbl = "Etz"
+        self._statusbar.showMessage(
+            f"Angemeldet als: {user_lbl}  ·  DRK Dienstkleidung v{APP_VERSION}"
+        )
+
     # ------------------------------------------------------------------
     # Backup
     # ------------------------------------------------------------------
 
     def _do_backup(self):
-        ok, msg = create_backup()
+        ok, msg = create_full_backup(self.db)
         if ok:
             QMessageBox.information(self, "Backup erfolgreich", msg)
             self._statusbar.showMessage("Backup erfolgreich erstellt.")

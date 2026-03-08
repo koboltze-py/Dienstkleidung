@@ -29,8 +29,17 @@ class MitarbeiterView(QWidget):
         self._current_ma_id: int | None = None
         self._current_ma_name: str = ""
         self._shown_count: int = self.PAGE_SIZE
+        self._allow_edit = True
         self._setup_ui()
         self._load_mitarbeiter()
+
+    def set_readonly(self):
+        """Deaktiviert alle Bearbeitungsfunktionen (Gast-Modus)."""
+        self._allow_edit = False
+        for attr in ("_btn_new_ma", "_btn_del_ma"):
+            btn = getattr(self, attr, None)
+            if btn:
+                btn.setVisible(False)
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
@@ -61,12 +70,14 @@ class MitarbeiterView(QWidget):
         btn_new.setObjectName("btn_secondary")
         btn_new.clicked.connect(self._new_mitarbeiter)
         top.addWidget(btn_new)
+        self._btn_new_ma = btn_new
 
         btn_del = QPushButton("🗑  Löschen")
         btn_del.setObjectName("btn_secondary")
         btn_del.setStyleSheet("color: #B20000;")
         btn_del.clicked.connect(self._delete_mitarbeiter)
         top.addWidget(btn_del)
+        self._btn_del_ma = btn_del
 
         btn_excel_alle = QPushButton("📊  Excel-Export alle MA")
         btn_excel_alle.setObjectName("btn_secondary")
