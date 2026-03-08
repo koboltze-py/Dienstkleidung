@@ -702,8 +702,8 @@ class BestandView(QWidget):
             tbl.setAlternatingRowColors(True)
             tbl.setShowGrid(True)
             tbl.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-            tbl.setColumnWidth(3, 90)
-            tbl.setColumnWidth(4, 210)
+            tbl.setColumnWidth(3, 80)
+            tbl.setColumnWidth(4, 240)
 
             for r, item in enumerate(items):
                 menge = int(item.get("menge", 0))
@@ -731,14 +731,14 @@ class BestandView(QWidget):
                 btn_eg = QPushButton("📦 Eingang")
                 btn_eg.setObjectName("btn_icon")
                 btn_eg.setToolTip("Wareneingang für diese Größe")
-                btn_eg.setMinimumWidth(66)
+                btn_eg.setMinimumWidth(72)
                 btn_eg.clicked.connect(lambda chk, i=item: self._open_eingang_for(i))
                 btn_l.addWidget(btn_eg)
 
                 btn_edit = QPushButton("✏ Bearb.")
                 btn_edit.setObjectName("btn_icon")
                 btn_edit.setToolTip("Bearbeiten")
-                btn_edit.setMinimumWidth(60)
+                btn_edit.setMinimumWidth(64)
                 btn_edit.clicked.connect(lambda chk, i=item: self._open_edit(i))
                 btn_l.addWidget(btn_edit)
 
@@ -746,7 +746,7 @@ class BestandView(QWidget):
                 btn_del.setObjectName("btn_icon")
                 btn_del.setStyleSheet("color:#B20000;")
                 btn_del.setToolTip("Eintrag löschen")
-                btn_del.setMinimumWidth(66)
+                btn_del.setMinimumWidth(72)
                 btn_del.clicked.connect(lambda chk, i=item: self._delete_item(i))
                 btn_l.addWidget(btn_del)
 
@@ -759,7 +759,8 @@ class BestandView(QWidget):
             hdr_h = tbl.horizontalHeader().height()
             tbl.setFixedHeight(hdr_h + row_h * len(items) + 4)
             bl.addWidget(tbl)
-            self._blocks_layout.addWidget(block, grid_row, grid_col)
+            self._blocks_layout.addWidget(block, grid_row, grid_col,
+                                          Qt.AlignmentFlag.AlignTop)
             grid_col += 1
             if grid_col > 1:
                 grid_col = 0
