@@ -5,7 +5,7 @@ Anzeige, Bearbeitung und Verwaltung des Kleidungsbestands.
 
 import os
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
+    QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QPushButton,
     QTableWidget, QTableWidgetItem, QComboBox, QLineEdit,
     QSpinBox, QDialog, QDialogButtonBox, QFormLayout, QFrame,
     QMessageBox, QHeaderView, QAbstractItemView, QSplitter,
@@ -565,9 +565,11 @@ class BestandView(QWidget):
         self._blocks_scroll.setWidgetResizable(True)
         self._blocks_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self._blocks_container = QWidget()
-        self._blocks_layout = QVBoxLayout(self._blocks_container)
-        self._blocks_layout.setSpacing(14)
+        self._blocks_layout = QGridLayout(self._blocks_container)
+        self._blocks_layout.setSpacing(12)
         self._blocks_layout.setContentsMargins(0, 0, 8, 0)
+        self._blocks_layout.setColumnStretch(0, 1)
+        self._blocks_layout.setColumnStretch(1, 1)
         self._blocks_scroll.setWidget(self._blocks_container)
         splitter.addWidget(self._blocks_scroll)
 
@@ -652,6 +654,8 @@ class BestandView(QWidget):
             groups[aid].append(item)
 
         warn_color = QColor("#FFF3CD")
+        grid_row = 0
+        grid_col = 0
 
         for art_id, items in groups.items():
             art_name = items[0].get("art_name", "")
@@ -689,7 +693,7 @@ class BestandView(QWidget):
             tbl.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
             tbl.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
             tbl.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
-            tbl.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+            tbl.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
             tbl.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
             tbl.verticalHeader().setVisible(False)
             tbl.verticalHeader().setDefaultSectionSize(34)
@@ -698,7 +702,8 @@ class BestandView(QWidget):
             tbl.setAlternatingRowColors(True)
             tbl.setShowGrid(True)
             tbl.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-            tbl.setColumnWidth(4, 220)
+            tbl.setColumnWidth(3, 90)
+            tbl.setColumnWidth(4, 210)
 
             for r, item in enumerate(items):
                 menge = int(item.get("menge", 0))
@@ -754,9 +759,14 @@ class BestandView(QWidget):
             hdr_h = tbl.horizontalHeader().height()
             tbl.setFixedHeight(hdr_h + row_h * len(items) + 4)
             bl.addWidget(tbl)
-            self._blocks_layout.addWidget(block)
+            self._blocks_layout.addWidget(block, grid_row, grid_col)
+            grid_col += 1
+            if grid_col > 1:
+                grid_col = 0
+                grid_row += 1
 
-        self._blocks_layout.addStretch()
+        # letzte Zeile: Stretch-Spacer damit Blöcke oben bleiben
+        self._blocks_layout.setRowStretch(grid_row + 1, 1)
 
         total_all = sum(int(d.get("menge", 0)) for d in data)
         self._lbl_summary.setText(
