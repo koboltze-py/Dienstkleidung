@@ -5,8 +5,13 @@ speichern und drucken.
 """
 
 import os
+import sys as _sys
 import json
 from datetime import datetime
+
+_APP_DIR = os.path.dirname(_sys.executable) if getattr(_sys, 'frozen', False) \
+    else os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_BESTELLUNG_DIR = os.path.join(os.path.dirname(_APP_DIR), "Data", "Bestellung")
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
@@ -17,11 +22,6 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QDate
 from PySide6.QtGui import QFont, QColor
-
-_BESTELLUNG_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-    "Data", "Bestellung"
-)
 
 
 # ---------------------------------------------------------------------------

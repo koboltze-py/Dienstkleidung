@@ -7,8 +7,9 @@ Alle Datenbankoperationen sind hier zentralisiert.
 import sqlite3
 import os
 from typing import Optional
+from pathutils import get_base_dir
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR = get_base_dir()
 MITARBEITER_DB = os.path.join(BASE_DIR, "Database", "mitarbeiter.db")
 KLEIDUNG_DB = os.path.join(BASE_DIR, "Database", "kleidung.db")
 

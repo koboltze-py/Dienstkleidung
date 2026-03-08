@@ -148,8 +148,9 @@ class MainWindow(QMainWindow):
         layout.setSpacing(0)
 
         # Logo-Bereich
+        from pathutils import get_base_dir as _get_base_dir
         _LOGO_PATH = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            _get_base_dir(),
             "Data", "Logo", "Depot.jpg"
         )
         lbl_logo = QLabel()

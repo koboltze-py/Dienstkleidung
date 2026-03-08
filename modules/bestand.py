@@ -993,6 +993,9 @@ class BestandView(QWidget):
             return
 
         BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        if getattr(__import__('sys'), 'frozen', False):
+            import sys as _sys
+            BASE = os.path.dirname(os.path.dirname(_sys.executable))
         export_dir = os.path.join(BASE, "Export")
         os.makedirs(export_dir, exist_ok=True)
         from datetime import date

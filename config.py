@@ -5,9 +5,10 @@ Alle Pfade zentral verwaltet und über config.json anpassbar.
 
 import os
 import json
+from pathutils import get_app_dir, get_base_dir
 
-_APP_DIR = os.path.dirname(os.path.abspath(__file__))
-_BASE_DIR = os.path.dirname(_APP_DIR)
+_APP_DIR = get_app_dir()
+_BASE_DIR = get_base_dir()
 _CONFIG_FILE = os.path.join(_APP_DIR, "config.json")
 
 DEFAULTS: dict[str, str] = {

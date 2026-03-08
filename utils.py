@@ -6,8 +6,9 @@ import os
 import shutil
 import logging
 from datetime import datetime
+from pathutils import get_base_dir
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR = get_base_dir()
 BACKUP_DIR = os.path.join(BASE_DIR, "Backup")
 DATABASE_DIR = os.path.join(BASE_DIR, "Database")
 EXPORT_DIR = os.path.join(BASE_DIR, "Export")

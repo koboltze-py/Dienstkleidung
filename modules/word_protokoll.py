@@ -17,6 +17,9 @@ from PySide6.QtCore import Qt
 # ---------------------------------------------------------------------------
 _MODULES_DIR = os.path.dirname(os.path.abspath(__file__))
 _APP_DIR     = os.path.dirname(_MODULES_DIR)
+import sys as _w_sys
+if getattr(_w_sys, 'frozen', False):
+    _APP_DIR = os.path.dirname(_w_sys.executable)
 _BASE_DIR    = os.path.dirname(_APP_DIR)
 
 TEMPLATE_PATH = os.path.join(

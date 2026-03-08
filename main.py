@@ -6,8 +6,9 @@ Starten mit: python main.py
 import sys
 import os
 
-# Sicherstellen, dass App-Verzeichnis im Python-Pfad ist
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Sicherstellen, dass App-Verzeichnis im Python-Pfad ist (nur im Dev-Modus)
+if not getattr(sys, 'frozen', False):
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from PySide6.QtWidgets import (
     QApplication, QDialog, QVBoxLayout, QHBoxLayout, QLabel,
