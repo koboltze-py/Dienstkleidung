@@ -545,7 +545,7 @@ class BestandView(QWidget):
 
         btn_aus = QPushButton("Ausbuchen")
         btn_aus.setObjectName("btn_secondary")
-        btn_aus.setStyleSheet("color:#344F6B;")
+        btn_aus.setStyleSheet("color:#2F4B5D;")
         btn_aus.clicked.connect(self._open_ausbuchen)
         toolbar.addWidget(btn_aus)
         self._btn_aus = btn_aus
@@ -666,7 +666,6 @@ class BestandView(QWidget):
                 groups[aid] = []
             groups[aid].append(item)
 
-        warn_color = QColor("#FFF3CD")
         grid_row = 0
         grid_col = 0
 
@@ -689,7 +688,7 @@ class BestandView(QWidget):
             name_font.setBold(True)
             name_font.setPointSize(11)
             lbl_name.setFont(name_font)
-            lbl_name.setStyleSheet("color: #344F6B;")
+            lbl_name.setStyleSheet("color: #2F4B5D;")
             hdr.addWidget(lbl_name)
             hdr.addStretch()
             lbl_total = QLabel(f"Gesamt: {total_art} Stück")
@@ -720,19 +719,25 @@ class BestandView(QWidget):
             for r, item in enumerate(items):
                 menge = int(item.get("menge", 0))
                 min_m = int(item.get("min_menge", 0))
-                is_low = min_m > 0 and menge <= min_m
+                is_crit = menge == 0
+                is_low  = min_m > 0 and menge <= min_m and not is_crit
+
+                if is_crit:
+                    lager_txt = f"🔴 {menge}"
+                elif is_low:
+                    lager_txt = f"⚠ {menge}"
+                else:
+                    lager_txt = str(menge)
 
                 cells = [
                     str(item.get("groesse", "")),
-                    str(menge),
+                    lager_txt,
                     str(min_m) if min_m > 0 else "–",
                     item.get("bemerkung", ""),
                 ]
                 for c, text in enumerate(cells):
                     it = QTableWidgetItem(text)
                     it.setData(Qt.ItemDataRole.UserRole, item)
-                    if is_low:
-                        it.setBackground(warn_color)
                     tbl.setItem(r, c, it)
 
             tbl.currentItemChanged.connect(lambda cur, prev, t=tbl: self._on_row_selected(cur, prev, t))
