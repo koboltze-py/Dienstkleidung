@@ -723,7 +723,8 @@ class BestandView(QWidget):
                     tbl.setItem(r, c, it)
 
             tbl.currentItemChanged.connect(self._on_row_selected)
-            self._block_tables.append(tbl)
+            tbl.cellDoubleClicked.connect(self._on_cell_double_clicked)
+            tbl.setToolTip("Doppelklick für Aktionen (Eingang, Bearbeiten, Löschen)")
             # Höhe exakt auf alle Zeilen setzen (kein Scrollbalken nötig)
             row_h = tbl.verticalHeader().defaultSectionSize()
             hdr_h = tbl.horizontalHeader().height()
@@ -806,6 +807,66 @@ class BestandView(QWidget):
                 if color:
                     cell.setBackground(color)
                 self._tbl_buchungen.setItem(r, c, cell)
+
+    def _on_cell_double_clicked(self, row, _col):
+        sender_tbl = self.sender()
+        cell = sender_tbl.item(row, 0)
+        if not cell:
+            return
+        item = cell.data(Qt.ItemDataRole.UserRole)
+        if item:
+            self._open_aktionen_dialog(item)
+
+    def _open_aktionen_dialog(self, item: dict):
+        dlg = QDialog(self)
+        dlg.setWindowTitle(f"{item.get('art_name', '')}  Gr. {item.get('groesse', '')}")
+        dlg.setMinimumWidth(320)
+        dlg.setModal(True)
+        layout = QVBoxLayout(dlg)
+        layout.setSpacing(8)
+        layout.setContentsMargins(20, 16, 20, 16)
+
+        lbl = QLabel(f"<b>{item.get('art_name', '')}</b>  Gr. {item.get('groesse', '')}  –  Auf Lager: {item.get('menge', 0)}")
+        layout.addWidget(lbl)
+
+        result = [None]
+
+        btn_eingang = QPushButton("Wareneingang buchen")
+        btn_eingang.setObjectName("btn_secondary")
+        def do_eingang():
+            result[0] = "eingang"
+            dlg.accept()
+        btn_eingang.clicked.connect(do_eingang)
+        layout.addWidget(btn_eingang)
+
+        btn_edit = QPushButton("Bearbeiten  (Menge, Mindestbestand, Bemerkung)")
+        btn_edit.setObjectName("btn_secondary")
+        def do_edit():
+            result[0] = "edit"
+            dlg.accept()
+        btn_edit.clicked.connect(do_edit)
+        layout.addWidget(btn_edit)
+
+        btn_del = QPushButton("Löschen")
+        btn_del.setObjectName("btn_secondary")
+        btn_del.setStyleSheet("color:#B20000;")
+        def do_del():
+            result[0] = "del"
+            dlg.accept()
+        btn_del.clicked.connect(do_del)
+        layout.addWidget(btn_del)
+
+        btn_cancel = QPushButton("Abbrechen")
+        btn_cancel.clicked.connect(dlg.reject)
+        layout.addWidget(btn_cancel)
+
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            if result[0] == "eingang":
+                self._open_eingang_for(item)
+            elif result[0] == "edit":
+                self._open_edit(item)
+            elif result[0] == "del":
+                self._delete_item(item)
 
     def _open_add(self):
         art_id = self.cb_filter.currentData()
