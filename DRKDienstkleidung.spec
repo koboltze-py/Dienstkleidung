@@ -93,6 +93,7 @@ exe = EXE(
     upx_exclude=[],
     runtime_tmpdir=None,
     console=False,          # kein Konsolenfenster
+    icon='assets/icons/drk_depot.ico',
     disable_windowed_traceback=False,
     target_arch=None,
     codesign_identity=None,
