@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QTableWidget, QTableWidgetItem, QComboBox, QLineEdit,
     QSpinBox, QDialog, QDialogButtonBox, QFormLayout, QFrame,
     QMessageBox, QHeaderView, QAbstractItemView, QSplitter,
-    QScrollArea, QDateEdit, QCheckBox,
+    QScrollArea, QDateEdit, QCheckBox, QSizePolicy,
 )
 from PySide6.QtCore import Qt, QDate
 from PySide6.QtGui import QColor, QFont
@@ -664,6 +664,7 @@ class BestandView(QWidget):
             # --- Kategorie-Block ---
             block = QFrame()
             block.setObjectName("stat_card")
+            block.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
             bl = QVBoxLayout(block)
             bl.setContentsMargins(14, 10, 14, 10)
             bl.setSpacing(6)
@@ -694,7 +695,7 @@ class BestandView(QWidget):
             tbl.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
             tbl.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
             tbl.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
-            tbl.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
+            tbl.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
             tbl.verticalHeader().setVisible(False)
             tbl.verticalHeader().setDefaultSectionSize(34)
             tbl.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -702,8 +703,8 @@ class BestandView(QWidget):
             tbl.setAlternatingRowColors(True)
             tbl.setShowGrid(True)
             tbl.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            tbl.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
             tbl.setColumnWidth(3, 80)
-            tbl.setColumnWidth(4, 240)
 
             for r, item in enumerate(items):
                 menge = int(item.get("menge", 0))
@@ -759,8 +760,7 @@ class BestandView(QWidget):
             hdr_h = tbl.horizontalHeader().height()
             tbl.setFixedHeight(hdr_h + row_h * len(items) + 4)
             bl.addWidget(tbl)
-            self._blocks_layout.addWidget(block, grid_row, grid_col,
-                                          Qt.AlignmentFlag.AlignTop)
+            self._blocks_layout.addWidget(block, grid_row, grid_col)
             grid_col += 1
             if grid_col > 1:
                 grid_col = 0
