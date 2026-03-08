@@ -19,17 +19,19 @@ from modules.ausgabe import AusgabeView
 from modules.mitarbeiter import MitarbeiterView
 from modules.verlauf import VerlaufView
 from modules.einstellungen import EinstellungenView
+from modules.bestellung import BestellungView
 from utils import create_full_backup
 
 APP_VERSION = "1.0.0"
 
 # Navigations-Einträge: (Label, Icon, Klassen-Referenz)
 NAV_ITEMS = [
-    ("Dashboard",         "Dash",    DashboardView),
-    ("Bestand",           "Bestand", BestandView),
-    ("Ausgabe / Rueckgabe","Ausgabe", AusgabeView),
-    ("Mitarbeiter",       "MA",      MitarbeiterView),
-    ("Buchungsverlauf",   "Verlauf", VerlaufView),
+    ("Dashboard",          "Dash",     DashboardView),
+    ("Bestand",            "Bestand",  BestandView),
+    ("Ausgabe / Rueckgabe","Ausgabe",  AusgabeView),
+    ("Mitarbeiter",        "MA",       MitarbeiterView),
+    ("Buchungsverlauf",    "Verlauf",  VerlaufView),
+    ("Bestellung",         "Bestell",  BestellungView),
 ]
 
 
@@ -105,15 +107,33 @@ class MainWindow(QMainWindow):
 
         # Views instanziieren und zum Stack hinzufügen
         self._views = []
-        for _label, _icon, ViewClass in NAV_ITEMS:
+        self._bestellung_view: "BestellungView | None" = None
+        for i, (_label, _icon, ViewClass) in enumerate(NAV_ITEMS):
             view = ViewClass(self.db)
             self._stack.addWidget(view)
             self._views.append(view)
+            if ViewClass.__name__ == "BestellungView":
+                self._bestellung_view = view
 
         # Einstellungen-View (separat, immer vorhanden)
         self._einstellungen_view = EinstellungenView(self.db)
         self._stack.addWidget(self._einstellungen_view)
         self._einstellungen_idx = len(NAV_ITEMS)  # index in stack
+
+        # Warenkorb-Callback: Bestand → Bestellung
+        bestand_view = next((v for v in self._views if isinstance(v, BestandView)), None)
+        if bestand_view and self._bestellung_view:
+            bestand_idx = NAV_ITEMS.index(
+                next(n for n in NAV_ITEMS if n[2].__name__ == "BestellungView")
+            )
+            def _cart_callback(item, _bidx=bestand_idx):
+                self._bestellung_view.add_item_from_bestand(item)
+                # Zur Bestellungsmaske wechseln
+                self._stack.setCurrentIndex(_bidx)
+                for btn in self._nav_buttons:
+                    btn.setChecked(False)
+                self._nav_buttons[_bidx].setChecked(True)
+            bestand_view.set_bestellung_callback(_cart_callback)
 
         # Ersten Tab aktivieren
         self._nav_buttons[0].setChecked(True)

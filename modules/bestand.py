@@ -494,8 +494,13 @@ class BestandView(QWidget):
         self._all_data: list[dict] = []
         self._block_tables: list = []
         self._allow_edit = True
+        self._bestellung_callback = None  # wird von MainWindow gesetzt
         self._setup_ui()
         self._load_data()
+
+    def set_bestellung_callback(self, callback):
+        """Callback(item) wird aufgerufen wenn Warenkorb-Button geklickt wird."""
+        self._bestellung_callback = callback
 
     def set_readonly(self):
         """Deaktiviert alle Bearbeitungsfunktionen (Gast-Modus)."""
@@ -701,12 +706,13 @@ class BestandView(QWidget):
             bl.addLayout(hdr)
 
             # Mini-Tabelle für diese Kategorie
-            tbl = QTableWidget(len(items), 4)
-            tbl.setHorizontalHeaderLabels(["Größe", "Auf Lager", "Mindestbestand", "Bemerkung"])
+            tbl = QTableWidget(len(items), 5)
+            tbl.setHorizontalHeaderLabels(["Größe", "Auf Lager", "Mindestbestand", "Bemerkung", ""])
             tbl.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
             tbl.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
             tbl.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
             tbl.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+            tbl.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
             tbl.verticalHeader().setVisible(False)
             tbl.verticalHeader().setDefaultSectionSize(34)
             tbl.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -739,6 +745,14 @@ class BestandView(QWidget):
                     it = QTableWidgetItem(text)
                     it.setData(Qt.ItemDataRole.UserRole, item)
                     tbl.setItem(r, c, it)
+
+                # Warenkorb-Button
+                btn_cart = QPushButton("🛒")
+                btn_cart.setObjectName("btn_icon")
+                btn_cart.setFixedWidth(36)
+                btn_cart.setToolTip("Zur Bestellung hinzufügen")
+                btn_cart.clicked.connect(lambda chk, it=item: self._add_to_bestellung(it))
+                tbl.setCellWidget(r, 4, btn_cart)
 
             tbl.currentItemChanged.connect(lambda cur, prev, t=tbl: self._on_row_selected(cur, prev, t))
             tbl.cellDoubleClicked.connect(self._on_cell_double_clicked)
@@ -838,6 +852,16 @@ class BestandView(QWidget):
         item = cell.data(Qt.ItemDataRole.UserRole)
         if item:
             self._open_aktionen_dialog(item)
+
+    def _add_to_bestellung(self, item: dict):
+        """Warenkorb-Button: übergibt Artikel an die Bestellungsmaske."""
+        if self._bestellung_callback:
+            self._bestellung_callback(item)
+        else:
+            QMessageBox.information(
+                self, "Bestellung",
+                "Bitte zuerst den Bestellungs-Tab öffnen."
+            )
 
     def _open_aktionen_dialog(self, item: dict):
         dlg = QDialog(self)
