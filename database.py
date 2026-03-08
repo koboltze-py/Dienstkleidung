@@ -483,6 +483,55 @@ class DatabaseManager:
         finally:
             conn.close()
 
+    def update_mitarbeiter_kleidung(
+        self, mk_id: int, menge: int, ausgabe_datum: str,
+        ausgegeben_von: str, bemerkung: str
+    ) -> tuple[bool, str]:
+        """Editiert eine bestehende Kleidungsposition (Ausgabe-Metadaten)."""
+        conn = self._conn_kl()
+        try:
+            row = conn.execute(
+                "SELECT * FROM mitarbeiter_kleidung WHERE id=?", (mk_id,)
+            ).fetchone()
+            if not row:
+                return False, "Datensatz nicht gefunden."
+
+            alte_menge = row["menge"]
+            menge_diff = menge - alte_menge
+
+            if menge_diff != 0:
+                if menge_diff > 0:
+                    bestand = conn.execute(
+                        "SELECT menge FROM kleidungsbestand WHERE art_id=? AND groesse=?",
+                        (row["art_id"], row["groesse"]),
+                    ).fetchone()
+                    verfuegbar = bestand[0] if bestand else 0
+                    if verfuegbar < menge_diff:
+                        return False, (
+                            f"Nicht genug im Bestand. Verfügbar: {verfuegbar}, "
+                            f"benötigt: {menge_diff} mehr."
+                        )
+                conn.execute(
+                    "UPDATE kleidungsbestand SET menge=menge-?, "
+                    "geaendert_am=datetime('now','localtime') "
+                    "WHERE art_id=? AND groesse=?",
+                    (menge_diff, row["art_id"], row["groesse"]),
+                )
+
+            conn.execute(
+                """UPDATE mitarbeiter_kleidung
+                   SET menge=?, ausgabe_datum=?, ausgegeben_von=?, bemerkung=?
+                   WHERE id=?""",
+                (menge, ausgabe_datum, ausgegeben_von, bemerkung, mk_id),
+            )
+            conn.commit()
+            return True, "Eintrag erfolgreich gespeichert."
+        except Exception as e:
+            conn.rollback()
+            return False, f"Fehler beim Speichern: {e}"
+        finally:
+            conn.close()
+
     def eingang_kleidung(
         self, art_id: int, art_name: str, groesse: str, menge: int,
         datum: str, bemerkung: str = ""

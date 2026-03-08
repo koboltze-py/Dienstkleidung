@@ -8,8 +8,9 @@ from PySide6.QtWidgets import (
     QPushButton, QListWidget, QListWidgetItem, QTableWidget,
     QTableWidgetItem, QHeaderView, QAbstractItemView, QFrame,
     QLineEdit, QMessageBox, QDialog, QDialogButtonBox, QFormLayout,
+    QSpinBox, QDateEdit,
 )
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt, QSize, QDate
 from PySide6.QtGui import QFont
 import os
 
@@ -171,6 +172,7 @@ class MitarbeiterView(QWidget):
         self._tbl.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self._tbl.setAlternatingRowColors(True)
         self._tbl.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self._tbl.cellDoubleClicked.connect(self._edit_kleidung_position)
         right_layout.addWidget(self._tbl)
 
         self.lbl_gesamt = QLabel("")
@@ -335,6 +337,88 @@ class MitarbeiterView(QWidget):
             f"{len(items)} Position(en) · {gesamt} Stück gesamt" if items
             else "Keine aktive Kleidung zugeordnet"
         )
+
+    def _edit_kleidung_position(self, row: int, _col: int):
+        """Öffnet einen Dialog zum Bearbeiten einer Kleidungsposition per Doppelklick."""
+        cell = self._tbl.item(row, 0)
+        if not cell:
+            return
+        mk_id = cell.data(Qt.ItemDataRole.UserRole)
+        if mk_id is None:
+            return
+
+        art_name = self._tbl.item(row, 0).text() if self._tbl.item(row, 0) else ""
+        groesse = self._tbl.item(row, 1).text() if self._tbl.item(row, 1) else ""
+        menge_text = self._tbl.item(row, 2).text() if self._tbl.item(row, 2) else "1"
+        datum_text = self._tbl.item(row, 3).text() if self._tbl.item(row, 3) else ""
+        ausgeg_von = self._tbl.item(row, 4).text() if self._tbl.item(row, 4) else ""
+        bemerkung = self._tbl.item(row, 5).text() if self._tbl.item(row, 5) else ""
+
+        dlg = QDialog(self)
+        dlg.setWindowTitle(f"Position bearbeiten – {art_name} Gr. {groesse}")
+        dlg.setMinimumWidth(400)
+        form = QFormLayout(dlg)
+        form.setContentsMargins(20, 20, 20, 12)
+        form.setSpacing(10)
+
+        lbl_art = QLabel(f"{art_name}  ·  Gr. {groesse}")
+        lbl_art.setStyleSheet("font-weight: bold; color: #B20000;")
+        form.addRow("Kleidungsart:", lbl_art)
+
+        sb_menge = QSpinBox()
+        sb_menge.setMinimum(1)
+        sb_menge.setMaximum(9999)
+        try:
+            sb_menge.setValue(int(menge_text))
+        except ValueError:
+            sb_menge.setValue(1)
+        form.addRow("Anzahl:", sb_menge)
+
+        de_datum = QDateEdit()
+        de_datum.setCalendarPopup(True)
+        de_datum.setDisplayFormat("dd.MM.yyyy")
+        if datum_text:
+            try:
+                parts = datum_text.split(".")
+                if len(parts) == 3:
+                    qd = QDate(int(parts[2]), int(parts[1]), int(parts[0]))
+                else:
+                    qd = QDate.currentDate()
+            except Exception:
+                qd = QDate.currentDate()
+        else:
+            qd = QDate.currentDate()
+        de_datum.setDate(qd)
+        form.addRow("Ausgabe-Datum:", de_datum)
+
+        le_von = QLineEdit(ausgeg_von)
+        form.addRow("Ausgeg. von:", le_von)
+
+        le_bem = QLineEdit(bemerkung)
+        form.addRow("Bemerkung:", le_bem)
+
+        btns = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
+        )
+        btns.accepted.connect(dlg.accept)
+        btns.rejected.connect(dlg.reject)
+        form.addRow(btns)
+
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        new_menge = sb_menge.value()
+        new_datum = de_datum.date().toString("yyyy-MM-dd")
+        new_von = le_von.text().strip()
+        new_bem = le_bem.text().strip()
+
+        ok, msg = self.db.update_mitarbeiter_kleidung(
+            mk_id, new_menge, new_datum, new_von, new_bem
+        )
+        if ok:
+            self._reload_kleidung()
+        else:
+            QMessageBox.critical(self, "Fehler", msg)
 
     def _new_mitarbeiter(self):
         dlg = QDialog(self)
