@@ -13,6 +13,9 @@ from PySide6.QtCore import Qt, QDate
 from PySide6.QtGui import QColor
 
 from utils import format_datum, export_table_to_csv
+from modules.word_protokoll import (
+    create_ausgabe_protokoll, create_rueckgabe_protokoll, open_document,
+)
 
 PAGE_SIZE = 100
 
@@ -126,6 +129,12 @@ class VerlaufView(QWidget):
 
         f2.addStretch()
 
+        btn_protokoll = QPushButton("📄 Protokoll erstellen")
+        btn_protokoll.setObjectName("btn_primary")
+        btn_protokoll.setToolTip("Aus markierten Zeilen ein Ausgabe- oder Rückgabeprotokoll erstellen")
+        btn_protokoll.clicked.connect(self._create_protokoll_from_selection)
+        f2.addWidget(btn_protokoll)
+
         btn_export = QPushButton("📄 CSV-Export")
         btn_export.setObjectName("btn_secondary")
         btn_export.clicked.connect(self._export)
@@ -151,7 +160,8 @@ class VerlaufView(QWidget):
         self._tbl.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self._tbl.setAlternatingRowColors(True)
         self._tbl.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self._tbl.setToolTip("Doppelklick zum Bearbeiten oder Löschen")
+        self._tbl.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        self._tbl.setToolTip("Doppelklick zum Bearbeiten oder Löschen | Zeilen markieren + Protokoll erstellen")
         self._tbl.cellDoubleClicked.connect(self._on_double_click)
         layout.addWidget(self._tbl)
 
@@ -291,6 +301,127 @@ class VerlaufView(QWidget):
             QMessageBox.information(self, "Export erfolgreich", f"Datei gespeichert:\n{msg}")
         else:
             QMessageBox.warning(self, "Export fehlgeschlagen", msg)
+
+    def _create_protokoll_from_selection(self):
+        selected_rows = sorted({self._tbl.row(it) for it in self._tbl.selectedItems()})
+        if not selected_rows:
+            QMessageBox.information(self, "Hinweis", "Bitte zuerst mindestens eine Zeile markieren.")
+            return
+
+        def _txt(r, c):
+            return (self._tbl.item(r, c) or QTableWidgetItem("")).text()
+
+        def _parse_typ(label: str) -> str:
+            """Typ-Erkennung robust per Substring, unabhängig von Emoji-Kodierung."""
+            if "Ausgabe" in label:
+                return "ausgabe"
+            if "ckgabe" in label:   # Rückgabe
+                return "rueckgabe"
+            return ""
+
+        # Alle markierten Zeilen einlesen
+        eintraege = []
+        for row in selected_rows:
+            typ_raw = _parse_typ(_txt(row, 1))
+            if not typ_raw:
+                continue
+            try:
+                menge = abs(int(_txt(row, 4).replace("+", "").strip()))
+            except (ValueError, AttributeError):
+                menge = 1
+            eintraege.append({
+                "typ":            typ_raw,
+                "art_name":       _txt(row, 2),
+                "groesse":        _txt(row, 3),
+                "menge":          menge,
+                "mitarbeiter":    _txt(row, 5),
+                "ausgegeben_von": _txt(row, 6),
+                "bemerkung":      _txt(row, 7),
+                "datum":          _txt(row, 0),
+            })
+
+        if not eintraege:
+            QMessageBox.information(
+                self, "Nicht möglich",
+                "Nur Zeilen vom Typ 'Ausgabe' oder 'Rückgabe' können als Protokoll exportiert werden."
+            )
+            return
+
+        # Prüfen: verschiedene Mitarbeiter → Warnung und abbrechen
+        mitarbeiter_namen = {e["mitarbeiter"] for e in eintraege}
+        if len(mitarbeiter_namen) > 1:
+            QMessageBox.warning(
+                self, "Verschiedene Mitarbeiter",
+                "Die Auswahl enthält Zeilen mehrerer Mitarbeiter:\n"
+                + "\n".join(f"  • {n}" for n in sorted(mitarbeiter_namen))
+                + "\n\nBitte nur Zeilen eines einzigen Mitarbeiters markieren."
+            )
+            return
+
+        # Prüfen: gemischte Typen innerhalb desselben MA
+        typen = {e["typ"] for e in eintraege}
+        if len(typen) > 1:
+            QMessageBox.warning(
+                self, "Gemischte Typen",
+                "Bitte nur Zeilen desselben Typs markieren (nur Ausgaben oder nur Rückgaben)."
+            )
+            return
+
+        ma_name        = eintraege[0]["mitarbeiter"]
+        typ            = eintraege[0]["typ"]
+        ausgegeben_von = eintraege[0]["ausgegeben_von"]
+        bemerkung      = eintraege[0]["bemerkung"]
+        datum_de       = eintraege[0]["datum"]
+
+        try:
+            from datetime import datetime as _dt
+            datum_iso = _dt.strptime(datum_de, "%d.%m.%Y").strftime("%Y-%m-%d")
+        except Exception:
+            from utils import today_iso
+            datum_iso = today_iso()
+
+        # Alle Buchungen des gleichen MA + Datum + Typ aus DB laden (vollständiges Protokoll)
+        alle_db = self.db.get_buchungen(
+            limit=1000, offset=0,
+            typ=typ,
+            datum_von=datum_iso,
+            datum_bis=datum_iso,
+            suche=ma_name,
+        )
+        alle_db = [b for b in alle_db if b.get("mitarbeiter_name", "").strip() == ma_name]
+        if alle_db:
+            ausgegeben_von = alle_db[0].get("ausgegeben_von", ausgegeben_von)
+            bemerkung      = alle_db[0].get("bemerkung", bemerkung)
+            artikel = [
+                {
+                    "art_name": b.get("art_name", ""),
+                    "groesse":  str(b.get("groesse", "")),
+                    "menge":    abs(int(b.get("menge", 1))),
+                }
+                for b in alle_db
+            ]
+        else:
+            artikel = [{"art_name": e["art_name"], "groesse": e["groesse"], "menge": e["menge"]}
+                       for e in eintraege]
+
+        if typ == "ausgabe":
+            ok, path = create_ausgabe_protokoll(
+                ma_name, datum_iso, ausgegeben_von, bemerkung,
+                [{"art_name": a["art_name"], "groesse": a["groesse"], "menge": a["menge"]} for a in artikel]
+            )
+        else:
+            proto_rows = [
+                {"art_name": a["art_name"], "groesse": a["groesse"],
+                 "menge": a["menge"], "lager": a["menge"], "entsorgt": 0}
+                for a in artikel
+            ]
+            ok, path = create_rueckgabe_protokoll(ma_name, datum_iso, bemerkung, proto_rows)
+
+        if ok:
+            open_document(path)
+            QMessageBox.information(self, "Protokoll erstellt", f"Dokument ge\u00f6ffnet:\n{path}")
+        else:
+            QMessageBox.warning(self, "Protokoll-Fehler", path)
 
     def showEvent(self, event):
         super().showEvent(event)

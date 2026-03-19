@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QTabWidget, QTableWidget, QTableWidgetItem, QGroupBox,
     QFormLayout, QMessageBox, QHeaderView, QAbstractItemView,
     QFrame, QScrollArea, QSizePolicy, QDialog, QDialogButtonBox,
-    QSplitter,
+    QSplitter, QRadioButton, QButtonGroup,
 )
 from PySide6.QtCore import Qt, QDate, QTimer
 
@@ -971,6 +971,389 @@ class RueckgabeTab(QWidget):
         self._load_mitarbeiter()
 
 
+class NachtraeglichesProtokollTab(QWidget):
+    """Reiter: Nachträgliches Ausgabe- oder Rückgabeprotokoll erstellen (ohne DB-Buchung)."""
+
+    def __init__(self, db, parent=None):
+        super().__init__(parent)
+        self.db = db
+        self._artikel_rows: list[dict] = []
+        self._setup_ui()
+        self._load_combos()
+        self._sidebar.load()
+
+    def _setup_ui(self):
+        scroll = QScrollArea(self)
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+
+        container = QWidget()
+        scroll.setWidget(container)
+        main_layout = QVBoxLayout(container)
+        main_layout.setContentsMargins(20, 20, 20, 20)
+        main_layout.setSpacing(16)
+
+        # Protokolltyp
+        grp_typ = QGroupBox("Protokolltyp")
+        typ_layout = QHBoxLayout(grp_typ)
+        typ_layout.setContentsMargins(16, 12, 16, 12)
+        self._rb_ausgabe = QRadioButton("📤  Ausgabeprotokoll")
+        self._rb_rueckgabe = QRadioButton("📥  Rückgabeprotokoll")
+        self._rb_ausgabe.setChecked(True)
+        self._btn_grp = QButtonGroup(self)
+        self._btn_grp.addButton(self._rb_ausgabe)
+        self._btn_grp.addButton(self._rb_rueckgabe)
+        typ_layout.addWidget(self._rb_ausgabe)
+        typ_layout.addWidget(self._rb_rueckgabe)
+        typ_layout.addStretch()
+        main_layout.addWidget(grp_typ)
+
+        # Mitarbeiter & Meta
+        grp_ma = QGroupBox("Mitarbeiter & Angaben")
+        form_ma = QFormLayout(grp_ma)
+        form_ma.setSpacing(12)
+        form_ma.setContentsMargins(16, 20, 16, 16)
+
+        ma_row = QHBoxLayout()
+        self.cb_ma = QComboBox()
+        self.cb_ma.setMinimumWidth(300)
+        self.cb_ma.setEditable(True)
+        self.cb_ma.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        self.cb_ma.completer().setFilterMode(Qt.MatchFlag.MatchContains)
+        self.cb_ma.completer().setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+        ma_row.addWidget(self.cb_ma)
+        self.le_ma_freitext = QLineEdit()
+        self.le_ma_freitext.setPlaceholderText("Oder Freitext (falls nicht in Liste)")
+        self.le_ma_freitext.setMinimumWidth(220)
+        ma_row.addWidget(QLabel("oder:"))
+        ma_row.addWidget(self.le_ma_freitext)
+        form_ma.addRow("Mitarbeiter:", ma_row)
+
+        self._gs_timer = QTimer(self)
+        self._gs_timer.setSingleShot(True)
+        self._gs_timer.timeout.connect(self._load_gespeicherte_kleidung)
+        self.cb_ma.currentIndexChanged.connect(lambda: self._gs_timer.start(250))
+
+        self.de_datum = QDateEdit(QDate.currentDate())
+        self.de_datum.setDisplayFormat("dd.MM.yyyy")
+        self.de_datum.setCalendarPopup(True)
+        self.de_datum.setMaximumWidth(160)
+        form_ma.addRow("Datum:", self.de_datum)
+
+        self.le_von = QLineEdit()
+        self.le_von.setPlaceholderText("Kürzel oder Name ...")
+        self.le_von.setMaximumWidth(180)
+        form_ma.addRow("Ausgegeben von:", self.le_von)
+
+        self.le_bem = QLineEdit()
+        self.le_bem.setPlaceholderText("Optional ...")
+        form_ma.addRow("Bemerkung:", self.le_bem)
+        main_layout.addWidget(grp_ma)
+
+        # Gespeicherte Kleidung des Mitarbeiters
+        self._grp_gespeichert = QGroupBox(
+            "Gespeicherte Kleidung des Mitarbeiters  (✔ Häkchen setzen → ins Protokoll übernehmen)"
+        )
+        gs_layout = QVBoxLayout(self._grp_gespeichert)
+        gs_layout.setContentsMargins(16, 12, 16, 12)
+        gs_layout.setSpacing(6)
+
+        self._tbl_gespeichert = QTableWidget(0, 5)
+        self._tbl_gespeichert.setHorizontalHeaderLabels(["✔", "Kleidungsart", "Größe", "Anzahl", "Ausgabe-Datum"])
+        self._tbl_gespeichert.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        self._tbl_gespeichert.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self._tbl_gespeichert.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        self._tbl_gespeichert.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        self._tbl_gespeichert.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+        self._tbl_gespeichert.verticalHeader().setVisible(False)
+        self._tbl_gespeichert.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self._tbl_gespeichert.setAlternatingRowColors(True)
+        self._tbl_gespeichert.setMaximumHeight(190)
+        gs_layout.addWidget(self._tbl_gespeichert)
+
+        gs_btn_row = QHBoxLayout()
+        btn_alle_an = QPushButton("☑  Alle auswählen")
+        btn_alle_an.setObjectName("btn_secondary")
+        btn_alle_an.clicked.connect(lambda: self._set_all_checks(True))
+        gs_btn_row.addWidget(btn_alle_an)
+        btn_alle_ab = QPushButton("☐  Alle abwählen")
+        btn_alle_ab.setObjectName("btn_secondary")
+        btn_alle_ab.clicked.connect(lambda: self._set_all_checks(False))
+        gs_btn_row.addWidget(btn_alle_ab)
+        gs_btn_row.addStretch()
+        gs_layout.addLayout(gs_btn_row)
+
+        self._lbl_gs_hint = QLabel("← Mitarbeiter auswählen, um gespeicherte Kleidung zu laden")
+        self._lbl_gs_hint.setStyleSheet("color:#888; font-size:11px;")
+        gs_layout.addWidget(self._lbl_gs_hint)
+        main_layout.addWidget(self._grp_gespeichert)
+
+        # Kleidungspositionen (manuell ergänzen)
+        grp_artikel = QGroupBox("Kleidungspositionen (manuell ergänzen)")
+        grp_layout = QVBoxLayout(grp_artikel)
+        grp_layout.setContentsMargins(16, 20, 16, 16)
+        grp_layout.setSpacing(6)
+
+        hdr = QHBoxLayout()
+        hdr.setSpacing(8)
+        for txt, w in [("Kleidungsart", 200), ("Größe", 130), ("Anzahl", 80)]:
+            lbl = QLabel(txt)
+            lbl.setFixedWidth(w)
+            lbl.setStyleSheet("font-weight: bold; color: #555;")
+            hdr.addWidget(lbl)
+        hdr.addStretch()
+        grp_layout.addLayout(hdr)
+
+        self._artikel_container = QVBoxLayout()
+        self._artikel_container.setSpacing(4)
+        grp_layout.addLayout(self._artikel_container)
+
+        btn_add = QPushButton("+ Artikel hinzufügen")
+        btn_add.setObjectName("btn_secondary")
+        btn_add.clicked.connect(self._add_zeile)
+        grp_layout.addWidget(btn_add)
+        main_layout.addWidget(grp_artikel)
+
+        # Aktions-Buttons
+        btn_row = QHBoxLayout()
+        btn_row.addStretch()
+
+        btn_ordner = QPushButton("Protokoll-Ordner öffnen")
+        btn_ordner.setObjectName("btn_secondary")
+        def _open_ordner():
+            import os as _os
+            d = get_ausgabe_dir() if self._rb_ausgabe.isChecked() else get_ruecknahme_dir()
+            _os.makedirs(d, exist_ok=True)
+            _os.startfile(d)
+        btn_ordner.clicked.connect(_open_ordner)
+        btn_row.addWidget(btn_ordner)
+
+        btn_reset = QPushButton("Zurücksetzen")
+        btn_reset.setObjectName("btn_secondary")
+        btn_reset.clicked.connect(self._reset_form)
+        btn_row.addWidget(btn_reset)
+
+        btn_protokoll = QPushButton("📄  Protokoll erstellen")
+        btn_protokoll.setObjectName("btn_primary")
+        btn_protokoll.clicked.connect(self._create_protokoll)
+        btn_row.addWidget(btn_protokoll)
+        main_layout.addLayout(btn_row)
+
+        self.lbl_result = QLabel("")
+        self.lbl_result.setVisible(False)
+        self.lbl_result.setWordWrap(True)
+        main_layout.addWidget(self.lbl_result)
+        main_layout.addStretch()
+
+        self._sidebar = MaSidebar(self.db)
+        self._sidebar.set_select_callback(self._on_ma_selected_sidebar)
+        self._sidebar.setMinimumWidth(180)
+        self._sidebar.setMaximumWidth(280)
+
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter.setChildrenCollapsible(False)
+        splitter.addWidget(self._sidebar)
+        splitter.addWidget(scroll)
+        splitter.setSizes([230, 800])
+        outer.addWidget(splitter)
+
+    def _on_ma_selected_sidebar(self, entry: dict):
+        idx = self.cb_ma.findData(entry["id"])
+        if idx >= 0:
+            self.cb_ma.blockSignals(True)
+            self.cb_ma.setCurrentIndex(idx)
+            self.cb_ma.lineEdit().setText(self.cb_ma.itemText(idx))
+            self.cb_ma.blockSignals(False)
+            popup = self.cb_ma.completer().popup()
+            if popup and popup.isVisible():
+                popup.hide()
+        else:
+            self.cb_ma.setCurrentIndex(0)
+            self.le_ma_freitext.setText(entry["name"])
+        self._load_gespeicherte_kleidung()
+
+    def _load_combos(self):
+        self.cb_ma.blockSignals(True)
+        self.cb_ma.clear()
+        self.cb_ma.addItem("– Aus Liste wählen –", None)
+        for ma in self.db.get_alle_mitarbeiter():
+            display = f"{ma['nachname']}, {ma['vorname']}"
+            if ma.get("personalnummer"):
+                display += f" ({ma['personalnummer']})"
+            self.cb_ma.addItem(display, ma["id"])
+        self.cb_ma.blockSignals(False)
+        if not self._artikel_rows:
+            self._add_zeile()
+
+    def _add_zeile(self):
+        row_w = QWidget()
+        hl = QHBoxLayout(row_w)
+        hl.setContentsMargins(0, 0, 0, 0)
+        hl.setSpacing(8)
+
+        cb_art = QComboBox()
+        cb_art.setFixedWidth(200)
+        cb_art.setEditable(True)
+        cb_art.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        for art in self.db.get_kleidungsarten():
+            cb_art.addItem(art["name"], art["id"])
+
+        le_gr = QLineEdit()
+        le_gr.setPlaceholderText("Größe ...")
+        le_gr.setFixedWidth(130)
+
+        sb = QSpinBox()
+        sb.setRange(1, 999)
+        sb.setValue(1)
+        sb.setFixedWidth(80)
+
+        btn_x = QPushButton("×")
+        btn_x.setFixedSize(28, 28)
+        btn_x.setStyleSheet(
+            "QPushButton{color:#B20000;font-weight:bold;font-size:16px;border:none;background:transparent;}"
+            "QPushButton:hover{background:#fce4e4;border-radius:4px;}"
+        )
+
+        hl.addWidget(cb_art)
+        hl.addWidget(le_gr)
+        hl.addWidget(sb)
+        hl.addWidget(btn_x)
+        hl.addStretch()
+
+        ri = {"widget": row_w, "cb_art": cb_art, "le_gr": le_gr, "sb": sb}
+        btn_x.clicked.connect(lambda _, rw=row_w, r=ri: self._remove_zeile(rw, r))
+        self._artikel_rows.append(ri)
+        self._artikel_container.addWidget(row_w)
+
+    def _remove_zeile(self, row_w, ri):
+        if len(self._artikel_rows) <= 1:
+            return
+        self._artikel_rows.remove(ri)
+        self._artikel_container.removeWidget(row_w)
+        row_w.deleteLater()
+
+    def _reset_form(self):
+        self.cb_ma.setCurrentIndex(0)
+        self.le_ma_freitext.clear()
+        self.de_datum.setDate(QDate.currentDate())
+        self.le_von.clear()
+        self.le_bem.clear()
+        self._rb_ausgabe.setChecked(True)
+        self.lbl_result.setVisible(False)
+        for ri in list(self._artikel_rows):
+            ri["widget"].deleteLater()
+        self._artikel_rows.clear()
+        self._add_zeile()
+
+    def _load_gespeicherte_kleidung(self):
+        ma_id = self.cb_ma.currentData()
+        self._tbl_gespeichert.setRowCount(0)
+        if not ma_id:
+            self._lbl_gs_hint.setText("← Mitarbeiter auswählen, um gespeicherte Kleidung zu laden")
+            self._lbl_gs_hint.setVisible(True)
+            return
+        items = self.db.get_mitarbeiter_kleidung(mitarbeiter_id=ma_id, status="ausgegeben")
+        if not items:
+            self._lbl_gs_hint.setText("Keine gespeicherte Kleidung für diesen Mitarbeiter vorhanden.")
+            self._lbl_gs_hint.setVisible(True)
+            return
+        self._lbl_gs_hint.setVisible(False)
+        self._tbl_gespeichert.setRowCount(len(items))
+        for r, it in enumerate(items):
+            chk = QTableWidgetItem()
+            chk.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled)
+            chk.setCheckState(Qt.CheckState.Checked)
+            chk.setData(Qt.ItemDataRole.UserRole, it)
+            self._tbl_gespeichert.setItem(r, 0, chk)
+            self._tbl_gespeichert.setItem(r, 1, QTableWidgetItem(it["art_name"]))
+            self._tbl_gespeichert.setItem(r, 2, QTableWidgetItem(str(it["groesse"])))
+            self._tbl_gespeichert.setItem(r, 3, QTableWidgetItem(str(it["menge"])))
+            self._tbl_gespeichert.setItem(r, 4, QTableWidgetItem(format_datum(it.get("ausgabe_datum", ""))))
+
+    def _set_all_checks(self, checked: bool):
+        state = Qt.CheckState.Checked if checked else Qt.CheckState.Unchecked
+        for r in range(self._tbl_gespeichert.rowCount()):
+            chk = self._tbl_gespeichert.item(r, 0)
+            if chk:
+                chk.setCheckState(state)
+
+    def _create_protokoll(self):
+        ma_id = self.cb_ma.currentData()
+        ma_name = ""
+        if ma_id:
+            ma_name = self.cb_ma.currentText().split(" (")[0].strip()
+        elif self.le_ma_freitext.text().strip():
+            ma_name = self.le_ma_freitext.text().strip()
+        else:
+            QMessageBox.warning(self, "Pflichtfeld", "Bitte einen Mitarbeiter auswählen oder eingeben.")
+            return
+
+        datum = self.de_datum.date().toString("yyyy-MM-dd")
+        ausgegeben_von = self.le_von.text().strip()
+        bemerkung = self.le_bem.text().strip()
+
+        # Gespeicherte Kleidung (angehakte Zeilen) bevorzugen
+        artikel = []
+        for r in range(self._tbl_gespeichert.rowCount()):
+            chk = self._tbl_gespeichert.item(r, 0)
+            if chk and chk.checkState() == Qt.CheckState.Checked:
+                it = chk.data(Qt.ItemDataRole.UserRole)
+                if it:
+                    artikel.append({
+                        "art_name": it["art_name"],
+                        "groesse":  str(it["groesse"]),
+                        "menge":    int(it["menge"]),
+                    })
+
+        # Fallback: manuell eingetragene Positionen
+        if not artikel:
+            for ri in self._artikel_rows:
+                art_name = ri["cb_art"].currentText().strip()
+                groesse = ri["le_gr"].text().strip()
+                if not art_name:
+                    continue
+                artikel.append({
+                    "art_name": art_name,
+                    "groesse":  groesse,
+                    "menge":    ri["sb"].value(),
+                })
+
+        if not artikel:
+            QMessageBox.warning(
+                self, "Nichts ausgewählt",
+                "Bitte gespeicherte Kleidungsstücke per Häkchen auswählen "
+                "oder manuell Positionen eintragen."
+            )
+            return
+
+        if self._rb_ausgabe.isChecked():
+            ok, path = create_ausgabe_protokoll(ma_name, datum, ausgegeben_von, bemerkung, artikel)
+        else:
+            proto_rows = [
+                {"art_name": a["art_name"], "groesse": a["groesse"],
+                 "menge": a["menge"], "lager": a["menge"], "entsorgt": 0}
+                for a in artikel
+            ]
+            ok, path = create_rueckgabe_protokoll(ma_name, datum, bemerkung, proto_rows)
+
+        if ok:
+            open_document(path)
+            self.lbl_result.setVisible(True)
+            self.lbl_result.setText(f"✔  Protokoll erstellt:\n{path}")
+            self.lbl_result.setStyleSheet(
+                "background:#E8F5E9; border-left:4px solid #388E3C; padding:8px; border-radius:4px;"
+            )
+        else:
+            QMessageBox.warning(self, "Protokoll-Fehler", path)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self._load_combos()
+        self._sidebar.load()
+
+
 class AusgabeView(QWidget):
     """Hauptansicht Ausgabe / Rückgabe."""
 
@@ -994,4 +1377,5 @@ class AusgabeView(QWidget):
         tabs = QTabWidget()
         tabs.addTab(AusgabeTab(self.db), "📤  Ausgabe")
         tabs.addTab(RueckgabeTab(self.db), "📥  Rückgabe")
+        tabs.addTab(NachtraeglichesProtokollTab(self.db), "📄  Nachträgliches Protokoll")
         layout.addWidget(tabs)
