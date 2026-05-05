@@ -505,9 +505,10 @@ class BestandView(QWidget):
         self._bestellung_callback = callback
 
     def add_bestellung_count(self, art_id, groesse: str, menge: int):
-        """Erhöht den Badge-Zähler für diesen Artikel."""
+        """Erhöht oder verringert den Badge-Zähler für diesen Artikel (negatives menge zum Abziehen)."""
         key = (art_id, str(groesse))
-        self._bestellung_counts[key] = self._bestellung_counts.get(key, 0) + menge
+        new_count = self._bestellung_counts.get(key, 0) + menge
+        self._bestellung_counts[key] = max(0, new_count)
         self._refresh_badge(key)
 
     def clear_bestellung_counts(self):

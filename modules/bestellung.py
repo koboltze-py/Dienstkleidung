@@ -285,7 +285,13 @@ class BestellungView(QWidget):
         rows = sorted({idx.row() for idx in self._tbl.selectedIndexes()}, reverse=True)
         for r in rows:
             if 0 <= r < len(self._items):
-                self._items.pop(r)
+                removed = self._items.pop(r)
+                if self._badge_update_cb:
+                    self._badge_update_cb(
+                        removed.get("art_id"),
+                        str(removed.get("groesse", "")),
+                        -int(removed.get("menge", 1)),
+                    )
         self._update_table()
 
     def _clear(self):
@@ -298,6 +304,8 @@ class BestellungView(QWidget):
         ) == QMessageBox.StandardButton.Yes:
             self._items.clear()
             self._update_table()
+            if self._badge_clear_cb:
+                self._badge_clear_cb()
 
     def _update_table(self):
         self._tbl.setRowCount(len(self._items))
@@ -329,6 +337,12 @@ class BestellungView(QWidget):
             self._items[row]["menge"] = val
             self._tbl.item(row, 2).setText(str(val))
             self._refresh_summary()
+            if self._badge_update_cb:
+                self._badge_update_cb(
+                    item.get("art_id"),
+                    str(item.get("groesse", "")),
+                    val - current,
+                )
 
     def _refresh_summary(self):
         gesamt = sum(int(i.get("menge", 1)) for i in self._items)
@@ -341,7 +355,13 @@ class BestellungView(QWidget):
 
     def _remove_row(self, idx: int):
         if 0 <= idx < len(self._items):
-            self._items.pop(idx)
+            removed = self._items.pop(idx)
+            if self._badge_update_cb:
+                self._badge_update_cb(
+                    removed.get("art_id"),
+                    str(removed.get("groesse", "")),
+                    -int(removed.get("menge", 1)),
+                )
             self._update_table()
 
     # ------------------------------------------------------------------
