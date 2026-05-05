@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 from pathutils import get_base_dir
 from database import MITARBEITER_DB, KLEIDUNG_DB
 
-_BACKUP_DIR = os.path.join(os.path.dirname(get_base_dir()), "Db Backup")
+_BACKUP_DIR = os.path.join(get_base_dir(), "Db Backup")
 _KEEP_DAYS   = 5
 _DATE_FORMAT = "%Y-%m-%d"
 
