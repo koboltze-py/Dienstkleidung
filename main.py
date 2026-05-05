@@ -154,6 +154,10 @@ def main():
     db = DatabaseManager()
     db.initialize()
 
+    # Tägliches Datenbank-Backup
+    from db_backup import run_daily_backup
+    run_daily_backup()
+
     # Hauptfenster
     window = MainWindow(db, role=role)
     window.show()
