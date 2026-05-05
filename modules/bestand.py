@@ -735,7 +735,8 @@ class BestandView(QWidget):
             tbl.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
             tbl.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
             tbl.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
-            tbl.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+            tbl.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
+            tbl.setColumnWidth(4, 80)
             tbl.verticalHeader().setVisible(False)
             tbl.verticalHeader().setDefaultSectionSize(34)
             tbl.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -771,6 +772,7 @@ class BestandView(QWidget):
 
                 # Warenkorb-Button + Badge
                 cell_w = QWidget()
+                cell_w.setMinimumWidth(78)
                 cell_l = QHBoxLayout(cell_w)
                 cell_l.setContentsMargins(2, 0, 2, 0)
                 cell_l.setSpacing(3)
