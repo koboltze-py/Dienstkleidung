@@ -250,20 +250,36 @@ class BestellungView(QWidget):
     # Daten
     # ------------------------------------------------------------------
 
+    def _add_or_merge_item(self, result: dict):
+        """Fügt result zur Liste hinzu oder erhöht die Menge bei gleichem Artikel+Größe."""
+        art_id  = result.get("art_id")
+        art_name = result.get("art_name", "").strip().lower()
+        groesse = str(result.get("groesse", "")).strip().lower()
+        menge   = int(result.get("menge", 1))
+
+        for existing in self._items:
+            same_id   = art_id is not None and existing.get("art_id") == art_id
+            same_name = art_id is None and existing.get("art_name", "").strip().lower() == art_name
+            same_size = str(existing.get("groesse", "")).strip().lower() == groesse
+            if (same_id or same_name) and same_size:
+                existing["menge"] = int(existing.get("menge", 1)) + menge
+                self._update_table()
+                if self._badge_update_cb:
+                    self._badge_update_cb(art_id, str(result.get("groesse", "")), menge)
+                return
+
+        self._items.append(result)
+        self._update_table()
+        if self._badge_update_cb:
+            self._badge_update_cb(art_id, str(result.get("groesse", "")), menge)
+
     def add_item_from_bestand(self, item: dict):
         """Wird vom Bestand aufgerufen, wenn der Warenkorb-Button geklickt wird."""
         dlg = ArtikelHinzufuegenDialog(self.db, preset_item=item, parent=self)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             result = dlg.get_result()
             if result:
-                self._items.append(result)
-                self._update_table()
-                if self._badge_update_cb:
-                    self._badge_update_cb(
-                        result.get("art_id"),
-                        str(result.get("groesse", "")),
-                        int(result.get("menge", 1)),
-                    )
+                self._add_or_merge_item(result)
 
     def set_badge_update_callback(self, cb):
         """cb(art_id, groesse, menge) – wird nach jedem Hinzufügen aus dem Bestand aufgerufen."""
@@ -278,14 +294,7 @@ class BestellungView(QWidget):
         if dlg.exec() == QDialog.DialogCode.Accepted:
             result = dlg.get_result()
             if result:
-                self._items.append(result)
-                self._update_table()
-                if self._badge_update_cb:
-                    self._badge_update_cb(
-                        result.get("art_id"),
-                        str(result.get("groesse", "")),
-                        int(result.get("menge", 1)),
-                    )
+                self._add_or_merge_item(result)
 
     def _remove_selected(self):
         rows = sorted({idx.row() for idx in self._tbl.selectedIndexes()}, reverse=True)
