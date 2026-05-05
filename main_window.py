@@ -128,11 +128,6 @@ class MainWindow(QMainWindow):
             )
             def _cart_callback(item, _bidx=bestand_idx):
                 self._bestellung_view.add_item_from_bestand(item)
-                # Zur Bestellungsmaske wechseln
-                self._stack.setCurrentIndex(_bidx)
-                for btn in self._nav_buttons:
-                    btn.setChecked(False)
-                self._nav_buttons[_bidx].setChecked(True)
             bestand_view.set_bestellung_callback(_cart_callback)
             self._bestellung_view.set_badge_update_callback(bestand_view.add_bestellung_count)
             self._bestellung_view.set_badge_clear_callback(bestand_view.clear_bestellung_counts)
