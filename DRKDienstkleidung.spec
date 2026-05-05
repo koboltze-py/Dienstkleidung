@@ -57,6 +57,7 @@ a = Analysis(
         'modules.verlauf',
         'modules.bestellung',
         'modules.word_protokoll',
+        'db_backup',
     ],
     hookspath=[],
     hooksconfig={},
