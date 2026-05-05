@@ -280,6 +280,12 @@ class BestellungView(QWidget):
             if result:
                 self._items.append(result)
                 self._update_table()
+                if self._badge_update_cb:
+                    self._badge_update_cb(
+                        result.get("art_id"),
+                        str(result.get("groesse", "")),
+                        int(result.get("menge", 1)),
+                    )
 
     def _remove_selected(self):
         rows = sorted({idx.row() for idx in self._tbl.selectedIndexes()}, reverse=True)
