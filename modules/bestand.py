@@ -495,12 +495,34 @@ class BestandView(QWidget):
         self._block_tables: list = []
         self._allow_edit = True
         self._bestellung_callback = None  # wird von MainWindow gesetzt
+        self._bestellung_counts: dict = {}  # (art_id, groesse) -> bestellte Menge
+        self._badge_labels: dict = {}       # (art_id, groesse) -> QLabel
         self._setup_ui()
         self._load_data()
 
     def set_bestellung_callback(self, callback):
         """Callback(item) wird aufgerufen wenn Warenkorb-Button geklickt wird."""
         self._bestellung_callback = callback
+
+    def add_bestellung_count(self, art_id, groesse: str, menge: int):
+        """Erhöht den Badge-Zähler für diesen Artikel."""
+        key = (art_id, str(groesse))
+        self._bestellung_counts[key] = self._bestellung_counts.get(key, 0) + menge
+        self._refresh_badge(key)
+
+    def clear_bestellung_counts(self):
+        """Setzt alle Badge-Zähler zurück und versteckt die Labels."""
+        self._bestellung_counts.clear()
+        for lbl in self._badge_labels.values():
+            lbl.setVisible(False)
+            lbl.setText("")
+
+    def _refresh_badge(self, key):
+        lbl = self._badge_labels.get(key)
+        if lbl:
+            count = self._bestellung_counts.get(key, 0)
+            lbl.setText(str(count))
+            lbl.setVisible(count > 0)
 
     def set_readonly(self):
         """Deaktiviert alle Bearbeitungsfunktionen (Gast-Modus)."""
@@ -658,6 +680,7 @@ class BestandView(QWidget):
     def _fill_blocks(self, data: list[dict]):
         # Vorhandene Blöcke leeren
         self._block_tables.clear()
+        self._badge_labels.clear()
         while self._blocks_layout.count():
             child = self._blocks_layout.takeAt(0)
             if child.widget():
@@ -746,13 +769,33 @@ class BestandView(QWidget):
                     it.setData(Qt.ItemDataRole.UserRole, item)
                     tbl.setItem(r, c, it)
 
-                # Warenkorb-Button
+                # Warenkorb-Button + Badge
+                cell_w = QWidget()
+                cell_l = QHBoxLayout(cell_w)
+                cell_l.setContentsMargins(2, 0, 2, 0)
+                cell_l.setSpacing(3)
+
                 btn_cart = QPushButton("🛒")
                 btn_cart.setObjectName("btn_icon")
                 btn_cart.setFixedWidth(36)
                 btn_cart.setToolTip("Zur Bestellung hinzufügen")
                 btn_cart.clicked.connect(lambda chk, it=item: self._add_to_bestellung(it))
-                tbl.setCellWidget(r, 4, btn_cart)
+                cell_l.addWidget(btn_cart)
+
+                badge_key = (item.get("art_id"), str(item.get("groesse", "")))
+                badge_lbl = QLabel("")
+                badge_lbl.setStyleSheet(
+                    "color: #fff; background: #2F4B5D; border-radius: 8px;"
+                    "padding: 1px 5px; font-weight: bold; font-size: 11px;"
+                )
+                badge_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                count = self._bestellung_counts.get(badge_key, 0)
+                badge_lbl.setText(str(count) if count > 0 else "")
+                badge_lbl.setVisible(count > 0)
+                cell_l.addWidget(badge_lbl)
+                self._badge_labels[badge_key] = badge_lbl
+
+                tbl.setCellWidget(r, 4, cell_w)
 
             tbl.currentItemChanged.connect(lambda cur, prev, t=tbl: self._on_row_selected(cur, prev, t))
             tbl.cellDoubleClicked.connect(self._on_cell_double_clicked)

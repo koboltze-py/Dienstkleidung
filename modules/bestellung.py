@@ -142,6 +142,8 @@ class BestellungView(QWidget):
         super().__init__(parent)
         self.db = db
         self._items: list[dict] = []
+        self._badge_update_cb = None  # callback(art_id, groesse, menge)
+        self._badge_clear_cb  = None  # callback()
         self._setup_ui()
 
     # ------------------------------------------------------------------
@@ -256,6 +258,20 @@ class BestellungView(QWidget):
             if result:
                 self._items.append(result)
                 self._update_table()
+                if self._badge_update_cb:
+                    self._badge_update_cb(
+                        result.get("art_id"),
+                        str(result.get("groesse", "")),
+                        int(result.get("menge", 1)),
+                    )
+
+    def set_badge_update_callback(self, cb):
+        """cb(art_id, groesse, menge) – wird nach jedem Hinzufügen aus dem Bestand aufgerufen."""
+        self._badge_update_cb = cb
+
+    def set_badge_clear_callback(self, cb):
+        """cb() – wird aufgerufen wenn Badges zurückgesetzt werden sollen."""
+        self._badge_clear_cb = cb
 
     def _add_artikel(self):
         dlg = ArtikelHinzufuegenDialog(self.db, parent=self)
@@ -482,3 +498,13 @@ class BestellungView(QWidget):
             f"Bestellung gespeichert:\n{path}\n\nDie Datei wird jetzt geöffnet."
         )
         os.startfile(path)
+
+        # Nachfragen ob Badge-Zähler zurückgesetzt werden sollen
+        if self._badge_clear_cb:
+            ans = QMessageBox.question(
+                self, "Anzahl-Anzeige zurücksetzen",
+                "Sollen die Bestellmengen-Anzeigen neben den Warenkorb-Symbolen im Bestand gelöscht werden?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if ans == QMessageBox.StandardButton.Yes:
+                self._badge_clear_cb()

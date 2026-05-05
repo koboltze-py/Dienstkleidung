@@ -134,6 +134,8 @@ class MainWindow(QMainWindow):
                     btn.setChecked(False)
                 self._nav_buttons[_bidx].setChecked(True)
             bestand_view.set_bestellung_callback(_cart_callback)
+            self._bestellung_view.set_badge_update_callback(bestand_view.add_bestellung_count)
+            self._bestellung_view.set_badge_clear_callback(bestand_view.clear_bestellung_counts)
 
         # Ersten Tab aktivieren
         self._nav_buttons[0].setChecked(True)
