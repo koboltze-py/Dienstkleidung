@@ -410,12 +410,12 @@ class BestellungView(QWidget):
         doc.add_paragraph()  # Leerzeile
 
         # Tabelle
-        tbl = doc.add_table(rows=1, cols=4)
+        tbl = doc.add_table(rows=1, cols=5)
         tbl.style = "Table Grid"
 
         # Header-Zeile
         hdr_cells = tbl.rows[0].cells
-        for i, h in enumerate(["Kleidungsart", "Größe", "Bestellmenge", "Bemerkung"]):
+        for i, h in enumerate(["Kleidungsart", "Größe", "Akt. Bestand", "Bestellmenge", "Bemerkung"]):
             p = hdr_cells[i].paragraphs[0]
             run = p.add_run(h)
             run.bold = True
@@ -431,9 +431,17 @@ class BestellungView(QWidget):
         # Datenzeilen
         for item in self._items:
             row_cells = tbl.add_row().cells
+            # Aktuellen Bestand nachschlagen
+            bestand_item = None
+            if item.get("art_id") is not None:
+                bestand_item = self.db.get_bestand_item(
+                    item["art_id"], str(item.get("groesse", ""))
+                )
+            akt_bestand = str(bestand_item["menge"]) if bestand_item else "–"
             vals = [
                 item.get("art_name", ""),
                 str(item.get("groesse", "")),
+                akt_bestand,
                 str(item.get("menge", 1)),
                 item.get("bemerkung", ""),
             ]
@@ -445,7 +453,7 @@ class BestellungView(QWidget):
         # Spaltenbreiten setzen
         for row in tbl.rows:
             for i, cell in enumerate(row.cells):
-                cell.width = [Cm(8), Cm(2.5), Cm(3), Cm(5)][i]
+                cell.width = [Cm(7), Cm(2.5), Cm(3), Cm(3), Cm(4.5)][i]
 
         doc.add_paragraph()  # Leerzeile
 
