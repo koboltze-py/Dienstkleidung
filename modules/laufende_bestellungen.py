@@ -132,6 +132,7 @@ class LaufendeBestellungenView(QWidget):
     def __init__(self, db, parent=None):
         super().__init__(parent)
         self.db = db
+        self._bestand_badge_cb = None  # callback() – aktualisiert blaue Badges im Bestand
         self._setup_ui()
 
     # ------------------------------------------------------------------
@@ -376,6 +377,10 @@ class LaufendeBestellungenView(QWidget):
         self._load_offen()
         self._load_historie()
 
+    def set_bestand_badge_callback(self, cb):
+        """cb() wird aufgerufen nach Abschluss/Löschen einer Bestellung."""
+        self._bestand_badge_cb = cb
+
     # ------------------------------------------------------------------
     # Aktionen
     # ------------------------------------------------------------------
@@ -428,6 +433,8 @@ class LaufendeBestellungenView(QWidget):
             QMessageBox.information(self, "Abgeschlossen", msg)
             self._load_offen()
             self._load_historie()
+            if self._bestand_badge_cb:
+                self._bestand_badge_cb()
         else:
             QMessageBox.critical(self, "Fehler", msg)
 
@@ -448,5 +455,7 @@ class LaufendeBestellungenView(QWidget):
         if ok:
             self._load_offen()
             self._load_historie()
+            if self._bestand_badge_cb:
+                self._bestand_badge_cb()
         else:
             QMessageBox.critical(self, "Fehler", msg)
