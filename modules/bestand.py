@@ -533,11 +533,17 @@ class BestandView(QWidget):
         counts: dict = {}
         for b in bestellungen:
             for pos in b.get("positionen", []):
+                if pos.get("status") == "erhalten":
+                    continue  # vollständig empfangen, nicht mehr zählen
                 art_id = pos.get("art_id")
                 groesse = str(pos.get("groesse", ""))
-                menge = int(pos.get("menge", 1))
+                menge_total = int(pos.get("menge", 1))
+                menge_erhalten_pos = int(pos.get("menge_erhalten", 0))
+                menge_remaining = menge_total - menge_erhalten_pos
+                if menge_remaining <= 0:
+                    continue
                 key = (art_id, groesse)
-                counts[key] = counts.get(key, 0) + menge
+                counts[key] = counts.get(key, 0) + menge_remaining
         self._laufend_counts = counts
         for key, lbl in self._laufend_badge_labels.items():
             c = self._laufend_counts.get(key, 0)
@@ -640,7 +646,7 @@ class BestandView(QWidget):
         detail_layout.setContentsMargins(12, 10, 12, 10)
         detail_layout.setSpacing(6)
         lbl_detail = QLabel("Buchungshistorie  — Zeile auswählen")
-        bold_f = QFont(); bold_f.setBold(True)
+        bold_f = QFont(); bold_f.setPointSize(10); bold_f.setBold(True)
         lbl_detail.setFont(bold_f)
         self._lbl_detail_title = lbl_detail
         detail_layout.addWidget(lbl_detail)
@@ -796,16 +802,17 @@ class BestandView(QWidget):
                 badge_key = (item.get("art_id"), str(item.get("groesse", "")))
 
                 cell_w = QWidget()
-                cell_w.setMinimumWidth(110)
                 cell_l = QHBoxLayout(cell_w)
                 cell_l.setContentsMargins(2, 0, 2, 0)
-                cell_l.setSpacing(3)
+                cell_l.setSpacing(2)
+                cell_l.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
                 # Laufende-Bestellungen-Badge (LINKS, blau)
                 laufend_lbl = QLabel("")
+                laufend_lbl.setFixedSize(28, 20)
                 laufend_lbl.setStyleSheet(
                     "color: #fff; background: #1565c0; border-radius: 8px;"
-                    "padding: 1px 5px; font-weight: bold; font-size: 11px;"
+                    "font-weight: bold; font-size: 11px;"
                 )
                 laufend_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 laufend_lbl.setToolTip("Stück bereits in einer laufenden Bestellung (Ware unterwegs)")
@@ -823,9 +830,10 @@ class BestandView(QWidget):
                 cell_l.addWidget(btn_cart)
 
                 badge_lbl = QLabel("")
+                badge_lbl.setFixedSize(28, 20)
                 badge_lbl.setStyleSheet(
                     "color: #fff; background: #2F4B5D; border-radius: 8px;"
-                    "padding: 1px 5px; font-weight: bold; font-size: 11px;"
+                    "font-weight: bold; font-size: 11px;"
                 )
                 badge_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 badge_lbl.setToolTip("Stück bereits in der aktuellen Bestellliste")

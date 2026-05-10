@@ -59,8 +59,8 @@ class LoginDialog(QDialog):
 
         lbl_title = QLabel("DRK Dienstkleidung")
         f = QFont()
-        f.setBold(True)
         f.setPointSize(14)
+        f.setBold(True)
         lbl_title.setFont(f)
         lbl_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lbl_title.setStyleSheet("color:#344F6B;")

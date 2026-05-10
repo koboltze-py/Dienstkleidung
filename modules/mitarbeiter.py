@@ -139,8 +139,8 @@ class MitarbeiterView(QWidget):
 
         self.lbl_ma_name = QLabel("Mitarbeiter auswählen")
         name_font = QFont()
-        name_font.setBold(True)
         name_font.setPointSize(13)
+        name_font.setBold(True)
         self.lbl_ma_name.setFont(name_font)
         self.lbl_ma_name.setStyleSheet("color: #344F6B;")
         hdr_row.addWidget(self.lbl_ma_name)
