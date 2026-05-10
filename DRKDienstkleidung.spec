@@ -56,7 +56,6 @@ a = Analysis(
         'modules.mitarbeiter',
         'modules.verlauf',
         'modules.bestellung',
-        'modules.laufende_bestellungen',
         'modules.word_protokoll',
         'db_backup',
     ],
