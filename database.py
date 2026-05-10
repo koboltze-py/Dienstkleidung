@@ -67,12 +67,25 @@ CREATE TABLE IF NOT EXISTS buchungen (
     erstellt_am      TEXT    DEFAULT (datetime('now','localtime'))
 );
 
+CREATE TABLE IF NOT EXISTS laufende_bestellungen (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    bestellnummer   TEXT    NOT NULL UNIQUE,
+    datum           TEXT    NOT NULL,
+    positionen      TEXT    NOT NULL,
+    status          TEXT    NOT NULL DEFAULT 'offen',
+    abgeschlossen_am TEXT,
+    bemerkung       TEXT    DEFAULT '',
+    erstellt_am     TEXT    DEFAULT (datetime('now','localtime'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_bestand_art        ON kleidungsbestand(art_id);
 CREATE INDEX IF NOT EXISTS idx_buchungen_datum    ON buchungen(datum);
 CREATE INDEX IF NOT EXISTS idx_buchungen_ma       ON buchungen(mitarbeiter_id);
 CREATE INDEX IF NOT EXISTS idx_mk_mitarbeiter     ON mitarbeiter_kleidung(mitarbeiter_id);
 CREATE INDEX IF NOT EXISTS idx_mk_name            ON mitarbeiter_kleidung(mitarbeiter_name);
 CREATE INDEX IF NOT EXISTS idx_mk_status          ON mitarbeiter_kleidung(status);
+CREATE INDEX IF NOT EXISTS idx_lb_status          ON laufende_bestellungen(status);
+CREATE INDEX IF NOT EXISTS idx_lb_datum           ON laufende_bestellungen(datum);
 """
 
 
@@ -106,10 +119,37 @@ class DatabaseManager:
         """Erstellt kleidung.db und alle Tabellen, falls noch nicht vorhanden."""
         if not os.path.exists(self.kleidung_db):
             self._create_tables()
+        else:
+            # Migriert bestehende Datenbank: laufende_bestellungen-Tabelle ergänzen
+            self._migrate_laufende_bestellungen()
 
     def _create_tables(self):
         conn = sqlite3.connect(self.kleidung_db)
         conn.executescript(_CREATE_TABLES_SQL)
+        conn.commit()
+        conn.close()
+
+    def _migrate_laufende_bestellungen(self):
+        """Erstellt die laufende_bestellungen-Tabelle, falls noch nicht vorhanden."""
+        conn = self._conn_kl()
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS laufende_bestellungen (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                bestellnummer   TEXT    NOT NULL UNIQUE,
+                datum           TEXT    NOT NULL,
+                positionen      TEXT    NOT NULL,
+                status          TEXT    NOT NULL DEFAULT 'offen',
+                abgeschlossen_am TEXT,
+                bemerkung       TEXT    DEFAULT '',
+                erstellt_am     TEXT    DEFAULT (datetime('now','localtime'))
+            )"""
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_lb_status ON laufende_bestellungen(status)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_lb_datum ON laufende_bestellungen(datum)"
+        )
         conn.commit()
         conn.close()
 
@@ -870,3 +910,105 @@ class DatabaseManager:
         rows = [dict(r) for r in cur.fetchall()]
         conn.close()
         return rows
+
+    # ------------------------------------------------------------------
+    # Laufende Bestellungen
+    # ------------------------------------------------------------------
+
+    def add_laufende_bestellung(
+        self, positionen: list[dict], bemerkung: str = ""
+    ) -> tuple[bool, str]:
+        """Speichert eine neue laufende Bestellung."""
+        import json as _json
+        conn = self._conn_kl()
+        try:
+            ts = __import__('datetime').datetime.now().strftime("%Y%m%d_%H%M%S")
+            bestellnummer = f"B-{ts}"
+            datum = __import__('datetime').datetime.now().strftime("%Y-%m-%d")
+            conn.execute(
+                """INSERT INTO laufende_bestellungen
+                   (bestellnummer, datum, positionen, status, bemerkung)
+                   VALUES (?, ?, ?, 'offen', ?)""",
+                (bestellnummer, datum, _json.dumps(positionen, ensure_ascii=False), bemerkung),
+            )
+            conn.commit()
+            return True, bestellnummer
+        except Exception as e:
+            conn.rollback()
+            return False, str(e)
+        finally:
+            conn.close()
+
+    def get_laufende_bestellungen(
+        self,
+        status: Optional[str] = None,
+        jahr: Optional[int] = None,
+        monat: Optional[int] = None,
+    ) -> list[dict]:
+        """Gibt laufende Bestellungen zurück, optional gefiltert."""
+        import json as _json
+        query = "SELECT * FROM laufende_bestellungen WHERE 1=1"
+        params: list = []
+        if status:
+            query += " AND status=?"
+            params.append(status)
+        if jahr:
+            query += " AND strftime('%Y', datum)=?"
+            params.append(str(jahr))
+        if monat:
+            query += " AND strftime('%m', datum)=?"
+            params.append(f"{monat:02d}")
+        query += " ORDER BY datum DESC, erstellt_am DESC"
+        conn = self._conn_kl()
+        cur = conn.execute(query, params)
+        rows = []
+        for r in cur.fetchall():
+            d = dict(r)
+            try:
+                d["positionen"] = _json.loads(d["positionen"])
+            except Exception:
+                d["positionen"] = []
+            rows.append(d)
+        conn.close()
+        return rows
+
+    def abschliessen_laufende_bestellung(
+        self, bestellung_id: int, bemerkung: str = ""
+    ) -> tuple[bool, str]:
+        """Schließt eine laufende Bestellung ab (Ware eingetroffen)."""
+        conn = self._conn_kl()
+        try:
+            row = conn.execute(
+                "SELECT * FROM laufende_bestellungen WHERE id=?", (bestellung_id,)
+            ).fetchone()
+            if not row:
+                return False, "Bestellung nicht gefunden."
+            if row["status"] == "abgeschlossen":
+                return False, "Bestellung ist bereits abgeschlossen."
+            abgeschlossen_am = __import__('datetime').datetime.now().strftime("%Y-%m-%d %H:%M")
+            bem = bemerkung or row["bemerkung"]
+            conn.execute(
+                """UPDATE laufende_bestellungen
+                   SET status='abgeschlossen', abgeschlossen_am=?, bemerkung=?
+                   WHERE id=?""",
+                (abgeschlossen_am, bem, bestellung_id),
+            )
+            conn.commit()
+            return True, "Bestellung erfolgreich abgeschlossen."
+        except Exception as e:
+            conn.rollback()
+            return False, str(e)
+        finally:
+            conn.close()
+
+    def delete_laufende_bestellung(self, bestellung_id: int) -> tuple[bool, str]:
+        """Löscht eine laufende Bestellung."""
+        conn = self._conn_kl()
+        try:
+            conn.execute("DELETE FROM laufende_bestellungen WHERE id=?", (bestellung_id,))
+            conn.commit()
+            return True, "Bestellung gelöscht."
+        except Exception as e:
+            return False, str(e)
+        finally:
+            conn.close()

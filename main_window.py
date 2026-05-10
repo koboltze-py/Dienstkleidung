@@ -20,18 +20,20 @@ from modules.mitarbeiter import MitarbeiterView
 from modules.verlauf import VerlaufView
 from modules.einstellungen import EinstellungenView
 from modules.bestellung import BestellungView
+from modules.laufende_bestellungen import LaufendeBestellungenView
 from utils import create_full_backup
 
 APP_VERSION = "1.0.0"
 
 # Navigations-Einträge: (Label, Icon, Klassen-Referenz)
 NAV_ITEMS = [
-    ("Dashboard",          "Dash",     DashboardView),
-    ("Bestand",            "Bestand",  BestandView),
-    ("Ausgabe / Rueckgabe","Ausgabe",  AusgabeView),
-    ("Mitarbeiter",        "MA",       MitarbeiterView),
-    ("Buchungsverlauf",    "Verlauf",  VerlaufView),
-    ("Bestellung",         "Bestell",  BestellungView),
+    ("Dashboard",             "Dash",     DashboardView),
+    ("Bestand",               "Bestand",  BestandView),
+    ("Ausgabe / Rueckgabe",   "Ausgabe",  AusgabeView),
+    ("Mitarbeiter",           "MA",       MitarbeiterView),
+    ("Buchungsverlauf",       "Verlauf",  VerlaufView),
+    ("Bestellung",            "Bestell",  BestellungView),
+    ("Laufende Bestellungen", "Laufend",  LaufendeBestellungenView),
 ]
 
 
@@ -108,12 +110,15 @@ class MainWindow(QMainWindow):
         # Views instanziieren und zum Stack hinzufügen
         self._views = []
         self._bestellung_view: "BestellungView | None" = None
+        self._laufend_view: "LaufendeBestellungenView | None" = None
         for i, (_label, _icon, ViewClass) in enumerate(NAV_ITEMS):
             view = ViewClass(self.db)
             self._stack.addWidget(view)
             self._views.append(view)
             if ViewClass.__name__ == "BestellungView":
                 self._bestellung_view = view
+            if ViewClass.__name__ == "LaufendeBestellungenView":
+                self._laufend_view = view
 
         # Einstellungen-View (separat, immer vorhanden)
         self._einstellungen_view = EinstellungenView(self.db)
@@ -131,6 +136,12 @@ class MainWindow(QMainWindow):
             bestand_view.set_bestellung_callback(_cart_callback)
             self._bestellung_view.set_badge_update_callback(bestand_view.add_bestellung_count)
             self._bestellung_view.set_badge_clear_callback(bestand_view.clear_bestellung_counts)
+
+        # Übergabe-Callback: Bestellung → Laufende Bestellungen
+        if self._bestellung_view and self._laufend_view:
+            def _laufend_reload_cb(_lv=self._laufend_view):
+                _lv.reload()
+            self._bestellung_view.set_laufend_callback(_laufend_reload_cb)
 
         # Ersten Tab aktivieren
         self._nav_buttons[0].setChecked(True)

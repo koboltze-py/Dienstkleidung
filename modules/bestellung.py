@@ -144,6 +144,7 @@ class BestellungView(QWidget):
         self._items: list[dict] = []
         self._badge_update_cb = None  # callback(art_id, groesse, menge)
         self._badge_clear_cb  = None  # callback()
+        self._laufend_cb      = None  # callback() – wird nach Übergabe aufgerufen
         self._setup_ui()
 
     # ------------------------------------------------------------------
@@ -202,10 +203,15 @@ class BestellungView(QWidget):
         btn_save.clicked.connect(self._save)
         toolbar.addWidget(btn_save)
 
-        btn_print = QPushButton("�  Als Word drucken")
+        btn_print = QPushButton("🖨  Als Word drucken")
         btn_print.setObjectName("btn_primary")
         btn_print.clicked.connect(self._print)
         toolbar.addWidget(btn_print)
+
+        btn_laufend = QPushButton("📋  An laufende Bestellungen übergeben")
+        btn_laufend.setObjectName("btn_primary")
+        btn_laufend.clicked.connect(self._uebergeben_an_laufende)
+        toolbar.addWidget(btn_laufend)
 
         layout.addLayout(toolbar)
 
@@ -217,7 +223,7 @@ class BestellungView(QWidget):
         card_layout.setSpacing(8)
 
         lbl_tbl = QLabel("Bestellliste")
-        f = QFont(); f.setBold(True); f.setPointSize(11)
+        f = QFont(); f.setPointSize(11); f.setBold(True)
         lbl_tbl.setFont(f)
         card_layout.addWidget(lbl_tbl)
 
@@ -288,6 +294,37 @@ class BestellungView(QWidget):
     def set_badge_clear_callback(self, cb):
         """cb() – wird aufgerufen wenn Badges zurückgesetzt werden sollen."""
         self._badge_clear_cb = cb
+
+    def set_laufend_callback(self, cb):
+        """cb() – wird aufgerufen, wenn eine Bestellung übergeben wurde."""
+        self._laufend_cb = cb
+
+    def _uebergeben_an_laufende(self):
+        """Übergibt die aktuelle Bestellliste an 'Laufende Bestellungen'."""
+        if not self._items:
+            QMessageBox.warning(self, "Leer", "Die Bestellliste ist leer.")
+            return
+        ans = QMessageBox.question(
+            self, "An laufende Bestellungen übergeben",
+            f"Die aktuelle Bestellliste mit {len(self._items)} Position(en) "
+            "als laufende Bestellung speichern?\n\n"
+            "Sie können die Bestellung danach unter 'Laufende Bestellungen' einsehen "
+            "und nach Wareneingang abschließen.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if ans != QMessageBox.StandardButton.Yes:
+            return
+        ok, result = self.db.add_laufende_bestellung(self._items)
+        if ok:
+            QMessageBox.information(
+                self, "Übergabe erfolgreich",
+                f"Bestellung wurde unter '{result}' gespeichert\n"
+                "und ist jetzt unter 'Laufende Bestellungen' sichtbar.",
+            )
+            if self._laufend_cb:
+                self._laufend_cb()
+        else:
+            QMessageBox.critical(self, "Fehler", f"Übergabe fehlgeschlagen:\n{result}")
 
     def _add_artikel(self):
         dlg = ArtikelHinzufuegenDialog(self.db, parent=self)

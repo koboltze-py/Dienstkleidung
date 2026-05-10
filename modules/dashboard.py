@@ -101,7 +101,7 @@ class DashboardView(QWidget):
 
         hdr_row = QHBoxLayout()
         lbl_low = QLabel("⚠  Niedriger Bestand")
-        f = QFont(); f.setBold(True); f.setPointSize(12)
+        f = QFont(); f.setPointSize(12); f.setBold(True)
         lbl_low.setFont(f)
         lbl_low.setStyleSheet("color: #E65100;")
         hdr_row.addWidget(lbl_low)
