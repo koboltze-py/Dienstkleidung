@@ -495,8 +495,10 @@ class BestandView(QWidget):
         self._block_tables: list = []
         self._allow_edit = True
         self._bestellung_callback = None  # wird von MainWindow gesetzt
-        self._bestellung_counts: dict = {}  # (art_id, groesse) -> bestellte Menge
-        self._badge_labels: dict = {}       # (art_id, groesse) -> QLabel
+        self._bestellung_counts: dict = {}      # (art_id, groesse) -> bestellte Menge
+        self._badge_labels: dict = {}             # (art_id, groesse) -> QLabel (rechts, bestellliste)
+        self._laufend_counts: dict = {}           # (art_id, groesse) -> laufende Bestellmenge
+        self._laufend_badge_labels: dict = {}     # (art_id, groesse) -> QLabel (links, blau)
         self._setup_ui()
         self._load_data()
 
@@ -524,6 +526,29 @@ class BestandView(QWidget):
             count = self._bestellung_counts.get(key, 0)
             lbl.setText(str(count))
             lbl.setVisible(count > 0)
+
+    def reload_laufend_badges(self):
+        """Liest offene laufende Bestellungen aus DB und aktualisiert die blauen Badges."""
+        bestellungen = self.db.get_laufende_bestellungen(status="offen")
+        counts: dict = {}
+        for b in bestellungen:
+            for pos in b.get("positionen", []):
+                if pos.get("status") == "erhalten":
+                    continue  # vollständig empfangen, nicht mehr zählen
+                art_id = pos.get("art_id")
+                groesse = str(pos.get("groesse", ""))
+                menge_total = int(pos.get("menge", 1))
+                menge_erhalten_pos = int(pos.get("menge_erhalten", 0))
+                menge_remaining = menge_total - menge_erhalten_pos
+                if menge_remaining <= 0:
+                    continue
+                key = (art_id, groesse)
+                counts[key] = counts.get(key, 0) + menge_remaining
+        self._laufend_counts = counts
+        for key, lbl in self._laufend_badge_labels.items():
+            c = self._laufend_counts.get(key, 0)
+            lbl.setText(str(c) if c > 0 else "")
+            lbl.setVisible(c > 0)
 
     def set_readonly(self):
         """Deaktiviert alle Bearbeitungsfunktionen (Gast-Modus)."""
@@ -621,7 +646,7 @@ class BestandView(QWidget):
         detail_layout.setContentsMargins(12, 10, 12, 10)
         detail_layout.setSpacing(6)
         lbl_detail = QLabel("Buchungshistorie  — Zeile auswählen")
-        bold_f = QFont(); bold_f.setBold(True)
+        bold_f = QFont(); bold_f.setPointSize(10); bold_f.setBold(True)
         lbl_detail.setFont(bold_f)
         self._lbl_detail_title = lbl_detail
         detail_layout.addWidget(lbl_detail)
@@ -665,6 +690,7 @@ class BestandView(QWidget):
         self._all_data = self.db.get_bestand()
         self._populate_filter()
         self._apply_filter()
+        self.reload_laufend_badges()
 
     def _apply_filter(self):
         art_id = self.cb_filter.currentData()
@@ -682,6 +708,7 @@ class BestandView(QWidget):
         # Vorhandene Blöcke leeren
         self._block_tables.clear()
         self._badge_labels.clear()
+        self._laufend_badge_labels.clear()
         while self._blocks_layout.count():
             child = self._blocks_layout.takeAt(0)
             if child.widget():
@@ -771,12 +798,29 @@ class BestandView(QWidget):
                     it.setData(Qt.ItemDataRole.UserRole, item)
                     tbl.setItem(r, c, it)
 
-                # Warenkorb-Button + Badge
+                # Warenkorb-Button + Badges
+                badge_key = (item.get("art_id"), str(item.get("groesse", "")))
+
                 cell_w = QWidget()
-                cell_w.setMinimumWidth(78)
                 cell_l = QHBoxLayout(cell_w)
                 cell_l.setContentsMargins(2, 0, 2, 0)
-                cell_l.setSpacing(3)
+                cell_l.setSpacing(2)
+                cell_l.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+                # Laufende-Bestellungen-Badge (LINKS, blau)
+                laufend_lbl = QLabel("")
+                laufend_lbl.setFixedSize(28, 20)
+                laufend_lbl.setStyleSheet(
+                    "color: #fff; background: #1565c0; border-radius: 8px;"
+                    "font-weight: bold; font-size: 11px;"
+                )
+                laufend_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                laufend_lbl.setToolTip("Stück bereits in einer laufenden Bestellung (Ware unterwegs)")
+                laufend_count = self._laufend_counts.get(badge_key, 0)
+                laufend_lbl.setText(str(laufend_count) if laufend_count > 0 else "")
+                laufend_lbl.setVisible(laufend_count > 0)
+                cell_l.addWidget(laufend_lbl)
+                self._laufend_badge_labels[badge_key] = laufend_lbl
 
                 btn_cart = QPushButton("🛒")
                 btn_cart.setObjectName("btn_icon")
@@ -785,13 +829,14 @@ class BestandView(QWidget):
                 btn_cart.clicked.connect(lambda chk, it=item: self._add_to_bestellung(it))
                 cell_l.addWidget(btn_cart)
 
-                badge_key = (item.get("art_id"), str(item.get("groesse", "")))
                 badge_lbl = QLabel("")
+                badge_lbl.setFixedSize(28, 20)
                 badge_lbl.setStyleSheet(
                     "color: #fff; background: #2F4B5D; border-radius: 8px;"
-                    "padding: 1px 5px; font-weight: bold; font-size: 11px;"
+                    "font-weight: bold; font-size: 11px;"
                 )
                 badge_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                badge_lbl.setToolTip("Stück bereits in der aktuellen Bestellliste")
                 count = self._bestellung_counts.get(badge_key, 0)
                 badge_lbl.setText(str(count) if count > 0 else "")
                 badge_lbl.setVisible(count > 0)

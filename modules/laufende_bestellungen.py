@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
     QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView,
     QFrame, QMessageBox, QDialog, QDialogButtonBox, QTextEdit,
     QFormLayout, QComboBox, QSplitter, QTabWidget, QLineEdit,
-    QSizePolicy,
+    QSizePolicy, QSpinBox,
 )
 from PySide6.QtCore import Qt, QDate
 from PySide6.QtGui import QFont, QColor
@@ -21,15 +21,19 @@ from PySide6.QtGui import QFont, QColor
 # ---------------------------------------------------------------------------
 
 class BestellungDetailDialog(QDialog):
-    def __init__(self, bestellung: dict, parent=None):
+    def __init__(self, bestellung: dict, db=None, on_change_cb=None, parent=None):
         super().__init__(parent)
+        self._bestellung = bestellung
+        self._db = db
+        self._on_change_cb = on_change_cb
         self.setWindowTitle(f"Bestellung {bestellung.get('bestellnummer', '')} – Details")
-        self.setMinimumWidth(560)
-        self.setMinimumHeight(400)
+        self.setMinimumWidth(680)
+        self.setMinimumHeight(420)
         self.setModal(True)
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 16, 20, 16)
-        layout.setSpacing(10)
+
+        self._main_layout = QVBoxLayout(self)
+        self._main_layout.setContentsMargins(20, 16, 20, 16)
+        self._main_layout.setSpacing(10)
 
         # Meta
         meta_frame = QFrame()
@@ -39,44 +43,152 @@ class BestellungDetailDialog(QDialog):
         meta_layout.setContentsMargins(12, 10, 12, 10)
         meta_layout.addRow("Bestellnummer:", QLabel(str(bestellung.get("bestellnummer", ""))))
         meta_layout.addRow("Datum:", QLabel(str(bestellung.get("datum", ""))))
-        status_lbl = QLabel(
+        self._status_lbl = QLabel(
             "✅ Abgeschlossen" if bestellung.get("status") == "abgeschlossen" else "🔄 Offen"
         )
-        meta_layout.addRow("Status:", status_lbl)
+        meta_layout.addRow("Status:", self._status_lbl)
         if bestellung.get("abgeschlossen_am"):
             meta_layout.addRow("Abgeschlossen am:", QLabel(str(bestellung["abgeschlossen_am"])))
         if bestellung.get("bemerkung"):
             meta_layout.addRow("Bemerkung:", QLabel(str(bestellung["bemerkung"])))
-        layout.addWidget(meta_frame)
+        self._main_layout.addWidget(meta_frame)
 
-        # Positionen-Tabelle
+        # Positionen-Label
         lbl = QLabel("Bestellpositionen")
         f = QFont(); f.setPointSize(10); f.setBold(True)
         lbl.setFont(f)
-        layout.addWidget(lbl)
+        self._main_layout.addWidget(lbl)
 
-        tbl = QTableWidget(0, 4)
-        tbl.setHorizontalHeaderLabels(["Kleidungsart", "Größe", "Menge", "Bemerkung"])
-        tbl.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        tbl.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        tbl.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
-        tbl.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
-        tbl.verticalHeader().setVisible(False)
-        tbl.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        tbl.setAlternatingRowColors(True)
+        # Tabelle
+        self._tbl = QTableWidget(0, 6)
+        self._tbl.setHorizontalHeaderLabels(
+            ["Kleidungsart", "Größe", "Bestellt", "Bemerkung", "Status", "Aktion"]
+        )
+        self._tbl.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self._tbl.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        self._tbl.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        self._tbl.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        self._tbl.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+        self._tbl.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeMode.Fixed)
+        self._tbl.horizontalHeader().resizeSection(5, 220)
+        self._tbl.verticalHeader().setVisible(False)
+        self._tbl.verticalHeader().setDefaultSectionSize(52)
+        self._tbl.verticalHeader().setMinimumSectionSize(52)
+        self._tbl.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        self._tbl.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self._tbl.setAlternatingRowColors(True)
+        self._main_layout.addWidget(self._tbl, stretch=1)
 
-        positionen = bestellung.get("positionen", [])
-        tbl.setRowCount(len(positionen))
-        for r, pos in enumerate(positionen):
-            tbl.setItem(r, 0, QTableWidgetItem(pos.get("art_name", "")))
-            tbl.setItem(r, 1, QTableWidgetItem(str(pos.get("groesse", ""))))
-            tbl.setItem(r, 2, QTableWidgetItem(str(pos.get("menge", ""))))
-            tbl.setItem(r, 3, QTableWidgetItem(pos.get("bemerkung", "")))
-        layout.addWidget(tbl, stretch=1)
+        self._fill_table()
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.rejected.connect(self.reject)
-        layout.addWidget(buttons)
+        self._main_layout.addWidget(buttons)
+
+    def _fill_table(self):
+        positionen = self._bestellung.get("positionen", [])
+
+        self._tbl.setRowCount(len(positionen))
+        for r, pos in enumerate(positionen):
+            pos_status = pos.get("status", "offen")
+            menge_total = int(pos.get("menge", 1))
+            menge_erhalten_pos = int(pos.get("menge_erhalten", 0))
+            erhalten = pos_status == "erhalten"
+            teilweise = pos_status == "teilweise"
+
+            self._tbl.setItem(r, 0, QTableWidgetItem(pos.get("art_name", "")))
+            self._tbl.setItem(r, 1, QTableWidgetItem(str(pos.get("groesse", ""))))
+            self._tbl.setItem(r, 2, QTableWidgetItem(str(menge_total)))
+            self._tbl.setItem(r, 3, QTableWidgetItem(pos.get("bemerkung", "")))
+
+            if erhalten:
+                status_text = f"✅ Erhalten ({menge_erhalten_pos}/{menge_total})"
+                status_color = "#2e7d32"
+            elif teilweise:
+                status_text = f"🟡 Teilweise ({menge_erhalten_pos}/{menge_total})"
+                status_color = "#e65100"
+            else:
+                status_text = f"🔄 Offen (0/{menge_total})"
+                status_color = "#1565c0"
+            status_item = QTableWidgetItem(status_text)
+            status_item.setForeground(QColor(status_color))
+            self._tbl.setItem(r, 4, status_item)
+
+            if self._db is not None:
+                cell = QWidget()
+                cell_layout = QHBoxLayout(cell)
+                cell_layout.setContentsMargins(4, 4, 4, 4)
+                cell_layout.setSpacing(4)
+                cell_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+                if not erhalten:
+                    remaining = menge_total - menge_erhalten_pos
+                    sb = QSpinBox()
+                    sb.setMinimum(1)
+                    sb.setMaximum(remaining)
+                    sb.setValue(remaining)
+                    sb.setToolTip(f"Anzahl eingeben (max. {remaining})")
+                    sb.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+                    # Dynamisch: mindestens die natürliche Breite der Spinbox verwenden
+                    sb.setMaximumWidth(65)
+                    btn_ok = QPushButton("✓ Erhalten")
+                    btn_ok.setMinimumWidth(95)
+                    btn_ok.setMinimumHeight(30)
+                    btn_ok.setStyleSheet(
+                        "QPushButton { background: #2e7d32; color: white; border-radius: 4px;"
+                        " padding: 3px 10px; font-size: 12px; border: none; }"
+                        "QPushButton:hover { background: #1b5e20; }"
+                    )
+                    btn_ok.setToolTip("Ausgewählte Menge als erhalten markieren")
+                    btn_ok.clicked.connect(lambda chk, idx=r, s=sb: self._mark_position(idx, s.value()))
+                    cell_layout.addWidget(sb)
+                    cell_layout.addWidget(btn_ok)
+                else:
+                    btn_undo = QPushButton("↩ Rückgängig")
+                    btn_undo.setMinimumWidth(95)
+                    btn_undo.setMinimumHeight(30)
+                    btn_undo.setStyleSheet(
+                        "QPushButton { background: #e65100; color: white; border-radius: 4px;"
+                        " padding: 3px 10px; font-size: 12px; border: none; }"
+                        "QPushButton:hover { background: #bf360c; }"
+                    )
+                    btn_undo.setToolTip("Erhalten-Markierung rücksetzen")
+                    btn_undo.clicked.connect(lambda chk, idx=r: self._rueckgaengig_position(idx))
+                    cell_layout.addWidget(btn_undo)
+                self._tbl.setCellWidget(r, 5, cell)
+            else:
+                self._tbl.setCellWidget(r, 5, None)
+
+    def _refresh_after_change(self, info: str = ""):
+        bid = self._bestellung.get("id")
+        updated = self._db.get_laufende_bestellung_by_id(bid)
+        if updated:
+            self._bestellung = updated
+        self._status_lbl.setText(
+            "✅ Abgeschlossen"
+            if self._bestellung.get("status") == "abgeschlossen"
+            else "🔄 Offen"
+        )
+        self._fill_table()
+        if self._on_change_cb:
+            self._on_change_cb()
+        if info:
+            QMessageBox.information(self, "Hinweis", info)
+
+    def _mark_position(self, idx: int, menge: int = None):
+        bid = self._bestellung.get("id")
+        ok, msg = self._db.abschliessen_position_laufende_bestellung(bid, idx, menge)
+        if not ok:
+            QMessageBox.critical(self, "Fehler", msg)
+            return
+        self._refresh_after_change(msg if "abgeschlossen" in msg else "")
+
+    def _rueckgaengig_position(self, idx: int):
+        bid = self._bestellung.get("id")
+        ok, msg = self._db.rueckgaengig_position_laufende_bestellung(bid, idx)
+        if not ok:
+            QMessageBox.critical(self, "Fehler", msg)
+            return
+        self._refresh_after_change()
 
 
 # ---------------------------------------------------------------------------
@@ -132,6 +244,7 @@ class LaufendeBestellungenView(QWidget):
     def __init__(self, db, parent=None):
         super().__init__(parent)
         self.db = db
+        self._bestand_badge_cb = None  # callback() – aktualisiert blaue Badges im Bestand
         self._setup_ui()
 
     # ------------------------------------------------------------------
@@ -376,6 +489,10 @@ class LaufendeBestellungenView(QWidget):
         self._load_offen()
         self._load_historie()
 
+    def set_bestand_badge_callback(self, cb):
+        """cb() wird aufgerufen nach Abschluss/Löschen einer Bestellung."""
+        self._bestand_badge_cb = cb
+
     # ------------------------------------------------------------------
     # Aktionen
     # ------------------------------------------------------------------
@@ -403,8 +520,16 @@ class LaufendeBestellungenView(QWidget):
         if not b:
             QMessageBox.information(self, "Hinweis", "Bitte eine Bestellung auswählen.")
             return
-        dlg = BestellungDetailDialog(b, parent=self)
+        def _on_change():
+            self._load_offen()
+            self._load_historie()
+            if self._bestand_badge_cb:
+                self._bestand_badge_cb()
+        dlg = BestellungDetailDialog(b, db=self.db, on_change_cb=_on_change, parent=self)
         dlg.exec()
+        # Nach Schließen auch neu laden (falls Änderungen gemacht wurden)
+        self._load_offen()
+        self._load_historie()
 
     def _show_detail_hist(self):
         b = self._get_selected_hist()
@@ -428,6 +553,8 @@ class LaufendeBestellungenView(QWidget):
             QMessageBox.information(self, "Abgeschlossen", msg)
             self._load_offen()
             self._load_historie()
+            if self._bestand_badge_cb:
+                self._bestand_badge_cb()
         else:
             QMessageBox.critical(self, "Fehler", msg)
 
@@ -448,5 +575,7 @@ class LaufendeBestellungenView(QWidget):
         if ok:
             self._load_offen()
             self._load_historie()
+            if self._bestand_badge_cb:
+                self._bestand_badge_cb()
         else:
             QMessageBox.critical(self, "Fehler", msg)

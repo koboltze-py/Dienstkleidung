@@ -143,6 +143,12 @@ class MainWindow(QMainWindow):
                 _lv.reload()
             self._bestellung_view.set_laufend_callback(_laufend_reload_cb)
 
+        # Abschluss-Callback: Laufende Bestellungen → Bestand (blaue Badges aktualisieren)
+        if self._laufend_view and bestand_view:
+            def _bestand_badge_cb(_bv=bestand_view):
+                _bv.reload_laufend_badges()
+            self._laufend_view.set_bestand_badge_callback(_bestand_badge_cb)
+
         # Ersten Tab aktivieren
         self._nav_buttons[0].setChecked(True)
         self._stack.setCurrentIndex(0)

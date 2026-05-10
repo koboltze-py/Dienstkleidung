@@ -1012,3 +1012,109 @@ class DatabaseManager:
             return False, str(e)
         finally:
             conn.close()
+
+    def get_laufende_bestellung_by_id(self, bestellung_id: int) -> "dict | None":
+        """Gibt eine einzelne laufende Bestellung anhand ihrer ID zurück."""
+        import json as _json
+        conn = self._conn_kl()
+        row = conn.execute(
+            "SELECT * FROM laufende_bestellungen WHERE id=?", (bestellung_id,)
+        ).fetchone()
+        conn.close()
+        if not row:
+            return None
+        d = dict(row)
+        try:
+            d["positionen"] = _json.loads(d["positionen"])
+        except Exception:
+            d["positionen"] = []
+        return d
+
+    def abschliessen_position_laufende_bestellung(
+        self, bestellung_id: int, position_idx: int, menge: int = None
+    ) -> tuple[bool, str]:
+        """Markiert eine einzelne Position ganz oder teilweise als erhalten.
+        Wenn alle Positionen vollständig erhalten sind, wird die Bestellung automatisch abgeschlossen."""
+        import json as _json
+        conn = self._conn_kl()
+        try:
+            row = conn.execute(
+                "SELECT * FROM laufende_bestellungen WHERE id=?", (bestellung_id,)
+            ).fetchone()
+            if not row:
+                return False, "Bestellung nicht gefunden."
+            if row["status"] == "abgeschlossen":
+                return False, "Bestellung ist bereits vollständig abgeschlossen."
+            positionen = _json.loads(row["positionen"])
+            if position_idx < 0 or position_idx >= len(positionen):
+                return False, "Position nicht gefunden."
+            pos = positionen[position_idx]
+            menge_total = int(pos.get("menge", 1))
+            menge_bisher = int(pos.get("menge_erhalten", 0))
+            if menge_bisher >= menge_total:
+                return False, "Position wurde bereits vollständig als erhalten markiert."
+            delta = (menge_total - menge_bisher) if menge is None else int(menge)
+            delta = max(1, min(delta, menge_total - menge_bisher))
+            menge_neu = menge_bisher + delta
+            pos["menge_erhalten"] = menge_neu
+            if menge_neu >= menge_total:
+                pos["status"] = "erhalten"
+            else:
+                pos["status"] = "teilweise"
+            alle_erhalten = all(p.get("status") == "erhalten" for p in positionen)
+            pos_json = _json.dumps(positionen, ensure_ascii=False)
+            if alle_erhalten:
+                abgeschlossen_am = __import__('datetime').datetime.now().strftime("%Y-%m-%d %H:%M")
+                conn.execute(
+                    "UPDATE laufende_bestellungen "
+                    "SET positionen=?, status='abgeschlossen', abgeschlossen_am=? WHERE id=?",
+                    (pos_json, abgeschlossen_am, bestellung_id),
+                )
+                msg = f"{delta} Stück erhalten. Alle Positionen erhalten – Bestellung automatisch abgeschlossen."
+            else:
+                conn.execute(
+                    "UPDATE laufende_bestellungen SET positionen=? WHERE id=?",
+                    (pos_json, bestellung_id),
+                )
+                msg = f"{delta} Stück als erhalten markiert."
+            conn.commit()
+            return True, msg
+        except Exception as e:
+            conn.rollback()
+            return False, str(e)
+        finally:
+            conn.close()
+
+    def rueckgaengig_position_laufende_bestellung(
+        self, bestellung_id: int, position_idx: int
+    ) -> tuple[bool, str]:
+        """Setzt eine als erhalten markierte Position zurück auf offen.
+        Falls die Bestellung abgeschlossen war, wird sie wieder auf offen gesetzt."""
+        import json as _json
+        conn = self._conn_kl()
+        try:
+            row = conn.execute(
+                "SELECT * FROM laufende_bestellungen WHERE id=?", (bestellung_id,)
+            ).fetchone()
+            if not row:
+                return False, "Bestellung nicht gefunden."
+            positionen = _json.loads(row["positionen"])
+            if position_idx < 0 or position_idx >= len(positionen):
+                return False, "Position nicht gefunden."
+            if positionen[position_idx].get("status") not in ("erhalten", "teilweise"):
+                return False, "Position ist nicht als erhalten markiert."
+            positionen[position_idx]["status"] = "offen"
+            positionen[position_idx]["menge_erhalten"] = 0
+            pos_json = _json.dumps(positionen, ensure_ascii=False)
+            conn.execute(
+                "UPDATE laufende_bestellungen "
+                "SET positionen=?, status='offen', abgeschlossen_am=NULL WHERE id=?",
+                (pos_json, bestellung_id),
+            )
+            conn.commit()
+            return True, "Position zurückgesetzt."
+        except Exception as e:
+            conn.rollback()
+            return False, str(e)
+        finally:
+            conn.close()
